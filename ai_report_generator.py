@@ -49,6 +49,7 @@ def get_prompt() -> str:
 def convert_attributed_table(source):
     attribs = []
     ret = []
+    print(f'source: {source}')
     for key in source[0]:
         attribs.append(key)
     ret.append(attribs)
@@ -60,21 +61,18 @@ def convert_attributed_table(source):
 
 def generate_report(response: str, output_path: str):
     pg = PaperGenerator('ShipporiMincho', './ReportGenenrator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
-    abstract_text = (
-        "ここに論文の概要(Abstract)を記載します。"
-        "この部分は1段組みで小さな文字サイズです。"
-        "ReportLabを用いてタイトルページから本文、引用文献まで自動生成する手法を示します。"
-    )
     config = ReportConfig()
     pg.set_title(config.title)
     pg.set_sub_title(config.sub_title)
-    pg.set_abstract(abstract_text)
     for author in config.authors:
         pg.add_author(author.name, author.organization)
 
         
     json_data = json.loads(response)
-    for section in json_data:
+
+
+    pg.set_abstract(json_data["abstract"])
+    for section in json_data["sections"]:
         if not "title" in section:
             continue
         if not "content" in section:
@@ -109,12 +107,15 @@ def test_create_pdf_from_dummy_data():
 
 
 if __name__ == '__main__':
+   
     prompt = get_prompt()
     print(prompt)
 
     agentManager = AgentManager()
     response = agentManager.query(prompt)
+    print('--- start ---')
     print(response)
+    print('--- end ---')
     print(type(response))
     generate_report(response, 'result.pdf')
 

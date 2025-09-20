@@ -222,6 +222,8 @@ class EStatTool(Tool):
                 except Exception as _e:
                     # 名前解決に失敗しても致命的ではないので続行（必要ならログなど）
                     pass
+            
+            print("params", params)
 
             aggregate: bool = bool(obj.get("aggregate", False))
 

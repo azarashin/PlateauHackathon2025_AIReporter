@@ -83,6 +83,8 @@ class GMLStat:
 
     '''
     def get_string_attribute_mean(self, layer_index: int, attrib_name: str):
+        if not attrib_name in self._json['layers'][layer_index]['string_field_frequencies']:
+            return {}
         feature = self.get_layer_name(layer_index)
         original = self._json['layers'][layer_index]['string_field_frequencies'][attrib_name]
         mean_map = self._mapper.get_mean(feature, attrib_name)

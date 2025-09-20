@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 import sys
 
-from gml_attrib_mapper import GMLAttribMapper, GMLIDMean
-from gml_attribute import CityGMLAttribute
+from AIAgentForCityGML.gml_attrib_mapper import GMLAttribMapper, GMLIDMean
+from AIAgentForCityGML.gml_attribute import CityGMLAttribute
 
 class GMLStat:
     def __init__(self, path: str, city_gml_attribute: CityGMLAttribute, mapper: GMLAttribMapper):

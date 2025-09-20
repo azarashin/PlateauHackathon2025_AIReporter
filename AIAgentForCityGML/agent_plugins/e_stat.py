@@ -12,6 +12,7 @@ LangChain Tool をクラス継承形式で e-Stat API を呼び出す実装例�
 - 環境変数: E_STAT_APP_ID
 """
 
+import logging
 import os
 import re
 import json
@@ -41,11 +42,16 @@ class CityCodeResolver:
     def __init__(self, filepath: str = "city_codes.json"):
         self.filepath = filepath
         self.codes: Dict[str, str] = {}
-        if os.path.exists(filepath):
-            with open(filepath, "r", encoding="utf-8") as f:
-                self.codes = json.load(f)
-        else:
-            raise FileNotFoundError(f"city_codes.json が見つかりません: {filepath}")
+        try:
+            if os.path.exists(filepath):
+                with open(filepath, "r", encoding="utf-8") as f:
+                    self.codes = json.load(f)
+            else:
+                raise FileNotFoundError(f"city_codes.json が見つかりません: {filepath}")
+        except Exception as e:
+            # ログだけ残し、空のデータで継続
+            logging.exception("CityCodeResolver 初期化失敗: %s", e)
+            self.codes = {}
 
     def name_from_code(self, code: str) -> Optional[str]:
         return self.codes.get(code)
@@ -83,8 +89,15 @@ class EStatTool(Tool):
     def __init__(self):
         load_dotenv()
         raw_app_id = os.getenv("E_STAT_APP_ID", "")
-        if not raw_app_id:
-            raise RuntimeError("環境変数 E_STAT_APP_ID を設定してください。")
+        try:
+            if not raw_app_id:
+                raise RuntimeError("環境変数 E_STAT_APP_ID を設定してください。")
+        except Exception as e:
+            logging.exception("EStatTool 初期化失敗: %s", e)
+            self._app_id = None
+            return
+
+
         try:
             app_id = json.loads(raw_app_id)
         except Exception:

@@ -1,5 +1,6 @@
 import sys
 import json
+import os
 
 sys.path.append('./AIAgentForCityGML')
 from AIAgentForCityGML.agent_manager import AgentManager
@@ -19,6 +20,18 @@ def get_prompt() -> str:
     purpose_string = '\n'.join([f'- {d}' for d in purpose_list])
     prompt = template.replace('{{PURPOSE_LIST}}', purpose_string)
     return prompt
+
+def convert_attributed_table(source):
+    attribs = []
+    ret = []
+    for key in source[0]:
+        attribs.append(key)
+    ret.append(attribs)
+    for line in source[1:]:
+        ret.append([line[key] for key in attribs])
+    return ret
+        
+        
 
 def generate_report(response: str, output_path: str):
     pg = PaperGenerator('ShipporiMincho', './ReportGenenrator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
@@ -46,12 +59,14 @@ def generate_report(response: str, output_path: str):
             if content["type"] == "text":
                 pg.add_sentence(content["content"])
             if content["type"] == "image" and "title" in content:
-                pg.add_image(content["content"], content["title"])
+                path = content["content"]
+                if os.path.isfile(path):
+                    pg.add_image(content["content"], content["title"])
             if content["type"] == "table" and "title" in content:
-                pg.add_table(content["content"], content["title"])
+                pg.add_table(convert_attributed_table(content["content"]), content["title"])
     pg.run(output_path)
 
-if __name__ == '__main__':
+def test_create_pdf_from_dummy_data():
     response = '[{"title": "東京駅周辺の建物分布","content": [ \
             {"type": "text", "content": "東京は日本の首都であり、多くの建物が密集しています。特に、ビジネスエリアや商業施設が多く存在し、様々な用途の建物が見られます。"}, \
             {"type": "table", "content": [ \
@@ -62,11 +77,16 @@ if __name__ == '__main__':
     ]}]'
     print(response)
     generate_report(response, 'result.pdf')
-    exit()
+
+
+if __name__ == '__main__':
     prompt = get_prompt()
     print(prompt)
 
     agentManager = AgentManager()
     response = agentManager.query(prompt)
+    print(response)
+    print(type(response))
+    generate_report(response, 'result.pdf')
 
 

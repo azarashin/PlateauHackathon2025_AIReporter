@@ -12,7 +12,7 @@ class AgentManager:
         plugins = self._load_plugins()
         
         load_dotenv()
-
+        
         API_KEY = os.environ['OPEN_AI_API_KEY']
         lim = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=API_KEY)
         self._agent = initialize_agent(
@@ -21,7 +21,8 @@ class AgentManager:
             agent="zero-shot-react-description", 
             verbose=True, 
             max_iterations=3,    # 例：最大3ステップ
-            early_stopping_method="generate"
+            early_stopping_method="generate", 
+            response_format="json"
         )
 
 

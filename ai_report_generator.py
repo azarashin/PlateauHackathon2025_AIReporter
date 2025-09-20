@@ -8,6 +8,31 @@ from AIAgentForCityGML.agent_manager import AgentManager
 sys.path.append('./ReportGenenrator')
 from ReportGenenrator.paper_generator import PaperGenerator
 
+class Author:
+    def __init__(self, json):
+        print(json)
+        self.name = json["name"]
+        self.organization = json["organization"]
+    
+    def __repr__(self) -> str:
+        return (f"Author(name={self.name!r}, "
+                f"organization={self.organization!r})")
+
+class ReportConfig:
+    def __init__(self):
+        # JSONファイルから読み込む場合
+        with open("report_config.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            self.title = data["title"]
+            self.sub_title = data["sub-title"]
+            self.authors = [Author(d) for d in data["authors"]]
+
+    def __repr__(self) -> str:
+        return (f"ReportInfo(title={self.title!r}, "
+                f"sub_title={self.sub_title!r}, "
+                f"authors={self.authors!r})")
+
+
 def get_prompt() -> str:
     purpose_list = []
     while True:
@@ -40,8 +65,12 @@ def generate_report(response: str, output_path: str):
         "この部分は1段組みで小さな文字サイズです。"
         "ReportLabを用いてタイトルページから本文、引用文献まで自動生成する手法を示します。"
     )
-    pg.set_title('論文タイトル：PythonによるPDF論文自動生成')
+    config = ReportConfig()
+    pg.set_title(config.title)
+    pg.set_sub_title(config.sub_title)
     pg.set_abstract(abstract_text)
+    for author in config.authors:
+        pg.add_author(author.name, author.organization)
 
         
     json_data = json.loads(response)

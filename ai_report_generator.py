@@ -6,8 +6,8 @@ from pathlib import Path
 sys.path.append('./AIAgentForCityGML')
 from AIAgentForCityGML.agent_manager import AgentManager
 
-sys.path.append('./ReportGenenrator')
-from ReportGenenrator.paper_generator import PaperGenerator
+sys.path.append('./ReportGenerator')
+from ReportGenerator.paper_generator import PaperGenerator
 
 class Author:
     def __init__(self, json):
@@ -42,26 +42,62 @@ def get_prompt() -> str:
             break
         purpose_list.append(purpose)
         
-    template = open('prompt_tepmlate.txt', 'r', encoding='utf-8').read()
+    target_area_list = []
+    while True:
+        target_area = input("レポートの対象地域を入力してください(空行で終了):")
+        if target_area.strip() == '':
+            break
+        target_area_list.append(target_area)
+
+    template = open('prompt_template.txt', 'r', encoding='utf-8').read()
     purpose_string = '\n'.join([f'- {d}' for d in purpose_list])
     prompt = template.replace('{{PURPOSE_LIST}}', purpose_string)
+    target_area_string = ', '.join([f"{d}" for d in target_area_list])
+    # replace on the already-updated prompt, not on the original template again
+    prompt = prompt.replace('{{TARGET_AREA}}', target_area_string)
+
     return prompt
 
 def convert_attributed_table(source):
-    attribs = []
-    ret = []
-    print(f'source: {source}')
-    for key in source[0]:
-        attribs.append(key)
-    ret.append(attribs)
-    for line in source[1:]:
-        ret.append([line[key] for key in attribs])
-    return ret
-        
-        
+    """Convert various table payload shapes into a 2D array [[headers...], [row...], ...].
+
+    Accepted inputs:
+    - dict: becomes two-column table [項目, 値]
+    - list[dict]: columns are keys of the first dict
+    - list[list|tuple]: assumed already tabular, returned as-is
+    - list[scalar]: becomes single-column table
+    - scalar: single value -> one-cell table
+    """
+    # dict -> two-column
+    if isinstance(source, dict):
+        header = ["項目", "値"]
+        rows = [[str(k), source[k]] for k in source.keys()]
+        return [header] + rows
+
+    # list-like
+    if isinstance(source, list):
+        if not source:
+            return []
+        first = source[0]
+        # list[dict]
+        if isinstance(first, dict):
+            attribs = list(first.keys())
+            ret = [attribs]
+            for row in source:
+                ret.append([row.get(k, "") for k in attribs])
+            return ret
+        # list[list|tuple]
+        if isinstance(first, (list, tuple)):
+            return source
+        # list[scalar]
+        return [["値"], *[[str(x)] for x in source]]
+
+    # scalar -> single-cell
+    return [["値"], [str(source)]]
+
 
 def generate_report(response: str, output_path: str):
-    pg = PaperGenerator('ShipporiMincho', './ReportGenenrator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
+    pg = PaperGenerator('ShipporiMincho', './ReportGenerator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
     config = ReportConfig()
     pg.set_title(config.title)
     pg.set_sub_title(config.sub_title)

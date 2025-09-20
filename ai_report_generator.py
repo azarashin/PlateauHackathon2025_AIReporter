@@ -96,7 +96,7 @@ def convert_attributed_table(source):
 
 
 def generate_report(response: str, output_path: str):
-    pg = PaperGenerator('ShipporiMincho', './ReportGenenrator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
+    pg = PaperGenerator('ShipporiMincho', './ReportGenerator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
     config = ReportConfig()
     pg.set_title(config.title)
     pg.set_sub_title(config.sub_title)

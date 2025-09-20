@@ -13,8 +13,10 @@ LangChain Tool をクラス継承形式で e-Stat API を呼び出す実装例�
 """
 
 import os
+import re
 import json
 import math
+import ast
 import requests
 from typing import Any, Dict, List, Tuple, Optional
 from dotenv import load_dotenv
@@ -202,7 +204,37 @@ class EStatTool(Tool):
 
     def _estat_query(self, expression: str) -> str:
         try:
-            obj: Dict[str, Any] = json.loads(expression)
+            # --- Accept several input shapes robustly ---
+            obj: Dict[str, Any]
+            if isinstance(expression, dict):
+                obj = expression  # type: ignore[assignment]
+            else:
+                s = str(expression or "").strip()
+                # Strip code fences
+                if s.startswith("```"):
+                    s = s.strip("`\n ")
+                    # Remove an optional language hint like ```json
+                    s = re.sub(r"^(json|python)\n", "", s, flags=re.IGNORECASE)
+                # Unwrap json.dumps({...}) pattern
+                m = re.match(r"^json\.dumps\((.*)\)$", s, flags=re.DOTALL)
+                if m:
+                    s = m.group(1).strip()
+                # If wrapped by single/double quotes, strip once
+                if (s.startswith("'") and s.endswith("'")) or (s.startswith('"') and s.endswith('"')):
+                    s = s[1:-1]
+                # Primary: try JSON
+                try:
+                    obj = json.loads(s)
+                except Exception:
+                    # Fallback: try Python literal dict
+                    try:
+                        lit = ast.literal_eval(s)
+                        if isinstance(lit, dict):
+                            obj = lit
+                        else:
+                            raise ValueError("Tool input is neither JSON nor a dict literal.")
+                    except Exception as ie:
+                        raise ValueError(f"ツール入力の解析に失敗しました。JSON文字列で渡してください。先頭120文字: {s[:120]}") from ie
 
             stats_id = obj.get("stats_id") or obj.get("statsDataId")
             if not stats_id:
@@ -223,7 +255,8 @@ class EStatTool(Tool):
                     # 名前解決に失敗しても致命的ではないので続行（必要ならログなど）
                     pass
             
-            print("params", params)
+            # Debug print (optional):
+            # print("params", params)
 
             aggregate: bool = bool(obj.get("aggregate", False))
 

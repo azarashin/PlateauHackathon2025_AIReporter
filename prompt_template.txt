@@ -4,10 +4,26 @@ CityGMLその他さまざまなデータを分析して日本語のレポート�
 【レポートの目的】
 {{PURPOSE_LIST}}
 
+【対象地域】
+{{TARGET_AREA}}
+
 【注意点】
 - 信頼度が75%以上の情報のみを含めるようにしてください。
 - 信頼度を求めるにあたり、誤りは-2点、無回答は0点、正解は1点としてください。
 
+【ツールの使用について：「人口」を求めるケース】
+令和2年国勢調査（stats_id=0003445078）から、 {{TARGET_AREA}} の総数（cdCat01=0）を取得して要約せよ。
+
+EStatTool を使うこと。
+Action Input は純粋なJSONオブジェクトのみ。json.dumpsやクォートは禁止。
+以下のペイロードをそのまま使え：
+{
+  "stats_id":"0003445078",
+  "params":{"cdTime":"2020000000","cdCat01":"0"},
+  "area":{"names":[{{TARGET_AREA}}],"index_json":"./CityGMLData/city_codes_osaka_structured.json"}
+}
+
+【出力形式】
 分析結果は次のようなjson形式で出力してください。
 
 [

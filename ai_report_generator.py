@@ -8,6 +8,31 @@ from AIAgentForCityGML.agent_manager import AgentManager
 sys.path.append('./ReportGenerator')
 from ReportGenerator.paper_generator import PaperGenerator
 
+class Author:
+    def __init__(self, json):
+        print(json)
+        self.name = json["name"]
+        self.organization = json["organization"]
+    
+    def __repr__(self) -> str:
+        return (f"Author(name={self.name!r}, "
+                f"organization={self.organization!r})")
+
+class ReportConfig:
+    def __init__(self):
+        # JSONファイルから読み込む場合
+        with open("report_config.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            self.title = data["title"]
+            self.sub_title = data["sub-title"]
+            self.authors = [Author(d) for d in data["authors"]]
+
+    def __repr__(self) -> str:
+        return (f"ReportInfo(title={self.title!r}, "
+                f"sub_title={self.sub_title!r}, "
+                f"authors={self.authors!r})")
+
+
 def get_prompt() -> str:
     purpose_list = []
     while True:
@@ -68,22 +93,22 @@ def convert_attributed_table(source):
 
     # scalar -> single-cell
     return [["値"], [str(source)]]
-        
-        
+
 
 def generate_report(response: str, output_path: str):
-    pg = PaperGenerator('ShipporiMincho', './ReportGenerator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
-    abstract_text = (
-        "ここに論文の概要(Abstract)を記載します。"
-        "この部分は1段組みで小さな文字サイズです。"
-        "ReportLabを用いてタイトルページから本文、引用文献まで自動生成する手法を示します。"
-    )
-    pg.set_title('論文タイトル：PythonによるPDF論文自動生成')
-    pg.set_abstract(abstract_text)
+    pg = PaperGenerator('ShipporiMincho', './ReportGenenrator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
+    config = ReportConfig()
+    pg.set_title(config.title)
+    pg.set_sub_title(config.sub_title)
+    for author in config.authors:
+        pg.add_author(author.name, author.organization)
 
         
     json_data = json.loads(response)
-    for section in json_data:
+
+
+    pg.set_abstract(json_data["abstract"])
+    for section in json_data["sections"]:
         if not "title" in section:
             continue
         if not "content" in section:
@@ -118,12 +143,15 @@ def test_create_pdf_from_dummy_data():
 
 
 if __name__ == '__main__':
+   
     prompt = get_prompt()
     print(prompt)
 
     agentManager = AgentManager()
     response = agentManager.query(prompt)
+    print('--- start ---')
     print(response)
+    print('--- end ---')
     print(type(response))
     generate_report(response, 'result.pdf')
 

@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import logging
 import os
 import pkgutil
 from langchain.agents import initialize_agent, Tool
@@ -39,7 +40,11 @@ class AgentManager:
             # モジュール内のクラスを走査して BasePlugin のサブクラスを取得
             for name, obj in inspect.getmembers(module, inspect.isclass):
                 if issubclass(obj, Tool) and obj is not Tool:
-                    instances.append(obj(gml_dirs))  # インスタンス化
+                    try:
+                        instance = obj(gml_dirs)
+                        instances.append(instance)  # インスタンス化
+                    except Exception as e:
+                        logging.exception(f"プラグイン({module})の追加に失敗しました")
 
         return instances
     

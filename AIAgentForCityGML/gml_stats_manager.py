@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 import sys
 
-from gml_attrib_mapper import GMLAttribMapper, GMLIDMean
-from gml_attribute import CityGMLAttribute
+from AIAgentForCityGML.gml_attrib_mapper import GMLAttribMapper, GMLIDMean
+from AIAgentForCityGML.gml_attribute import CityGMLAttribute
 
 class GMLStat:
     def __init__(self, path: str, city_gml_attribute: CityGMLAttribute, mapper: GMLAttribMapper):
@@ -83,6 +83,8 @@ class GMLStat:
 
     '''
     def get_string_attribute_mean(self, layer_index: int, attrib_name: str):
+        if not attrib_name in self._json['layers'][layer_index]['string_field_frequencies']:
+            return {}
         feature = self.get_layer_name(layer_index)
         original = self._json['layers'][layer_index]['string_field_frequencies'][attrib_name]
         mean_map = self._mapper.get_mean(feature, attrib_name)
@@ -166,20 +168,20 @@ class GmlStatManager:
         mapper = GMLAttribMapper(base_dir)
         city_gml_attribute = CityGMLAttribute(base_dir)
 
-        self._stat_list = [GMLStat(gml_stat, city_gml_attribute, mapper) for gml_stat in gml_stats_files]
+        self.stat_list = [GMLStat(gml_stat, city_gml_attribute, mapper) for gml_stat in gml_stats_files]
 
     def show_menu(self):
         """コンソールメニューを表示してユーザ選択を受け取り、その統計を出力"""
-        if not self._stat_list:
+        if not self.stat_list:
             return
         print("==== GML統計ファイル一覧 ====")
-        for i, stat in enumerate(self._stat_list):
+        for i, stat in enumerate(self.stat_list):
             print(f"{i}: {stat.get_source()}")
 
         while True:
             try:
                 idx = int(input("表示したい番号を入力してください: "))
-                if 0 <= idx < len(self._stat_list):
+                if 0 <= idx < len(self.stat_list):
                     break
                 else:
                     print("範囲外の番号です。")
@@ -187,7 +189,7 @@ class GmlStatManager:
                 print("数字を入力してください。")
 
         # 選ばれた統計情報を表示（ここでは簡易表示）
-        chosen = self._stat_list[idx]
+        chosen = self.stat_list[idx]
         print(f"\n--- {chosen.get_source()} ---")
         for layer_idx in range(chosen.get_layer_count()):
             print(f"[Layer {layer_idx}] {chosen.get_layer_name(layer_idx)}")

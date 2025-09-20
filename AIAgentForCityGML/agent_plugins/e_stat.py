@@ -86,7 +86,7 @@ class EStatTool(Tool):
 
     _app_id: str = PrivateAttr(default="")
 
-    def __init__(self):
+    def __init__(self, gml_dirs: list[dir]):
         super().__init__(
             name="estat_get_stats",
             func=self._estat_query,

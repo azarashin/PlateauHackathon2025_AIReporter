@@ -87,6 +87,15 @@ class EStatTool(Tool):
     _app_id: str = PrivateAttr(default="")
 
     def __init__(self):
+        super().__init__(
+            name="estat_get_stats",
+            func=self._estat_query,
+            description=(
+                "e-Stat の getStatsData を呼び出すツール。入力は JSON。" \
+                "必須: stats_id（統計表ID）。任意: params, area(city_code/ward_codes/sapporo_all_wards), aggregate。"
+            ),
+        )
+
         load_dotenv()
         raw_app_id = os.getenv("E_STAT_APP_ID", "")
         try:
@@ -103,14 +112,6 @@ class EStatTool(Tool):
         except Exception:
             app_id = raw_app_id.strip('"')
 
-        super().__init__(
-            name="estat_get_stats",
-            func=self._estat_query,
-            description=(
-                "e-Stat の getStatsData を呼び出すツール。入力は JSON。" \
-                "必須: stats_id（統計表ID）。任意: params, area(city_code/ward_codes/sapporo_all_wards), aggregate。"
-            ),
-        )
         self._app_id = app_id
 
     @staticmethod

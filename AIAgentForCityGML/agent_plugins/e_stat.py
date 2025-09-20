@@ -13,13 +13,24 @@ import json
 import requests
 from typing import Any, Dict
 from dotenv import load_dotenv
+from pydantic import PrivateAttr
 
 from langchain.agents import Tool
 
-E_STAT_BASE = "https://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
+E_STAT_BASE = "http://api.e-stat.go.jp/rest/3.0/app/json/getStatsData"
 
 class EStatTool(Tool):
+    # Private attribute to avoid Pydantic field validation errors
+    _app_id: str = PrivateAttr(default="")
+
     def __init__(self):
+        # Load environment variables first
+        load_dotenv()
+        app_id = os.getenv("E_STAT_APP_ID", "")
+        if not app_id:
+            raise RuntimeError("環境変数 E_STAT_APP_ID を設定してください。")
+
+        # Initialize Tool after preparing instance state
         super().__init__(
             name="estat_get_stats",
             func=self._estat_query,
@@ -29,31 +40,35 @@ class EStatTool(Tool):
                 "必須キー: stats_id（統計表ID）。任意キー: params(dict)。"
             )
         )
-        load_dotenv()
-        self.app_id = os.getenv("E_STAT_APP_ID", "")
-        if not self.app_id:
-            raise RuntimeError("環境変数 E_STAT_APP_ID を設定してください。")
+        # Set private attribute (allowed for Pydantic models)
+        self._app_id = app_id
 
     def _estat_query(self, expression: str) -> str:
         try:
             obj: Dict[str, Any] = json.loads(expression)
             stats_id = obj.get("stats_id") or obj.get("statsDataId")
+            print("stats_id", stats_id)
             params: Dict[str, Any] = obj.get("params", {})
+            print("Params", params)
             if not stats_id:
                 return "入力 JSON に stats_id が必要です。"
 
-            q = {"appId": self.app_id, "statsDataId": stats_id}
+            app_id = json.loads(self._app_id)
+            q = {"appId": app_id, "statsDataId": stats_id}
             if params:
                 q.update(params)
             r = requests.get(E_STAT_BASE, params=q, timeout=60)
-            r.raise_for_status()
+            print(r.url)
+            print(r.raise_for_status())
             data = r.json()
+            print("Data", data)
             values = (
                 data.get("GET_STATS_DATA", {})
                 .get("STATISTICAL_DATA", {})
                 .get("DATA_INF", {})
                 .get("VALUE", [])
             )
+            print("Values", values)
             if isinstance(values, dict):
                 values = [values]
             preview = values[:5]

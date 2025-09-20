@@ -11,8 +11,6 @@ class MakeCityList(Tool):
             func=self._make_city_list, 
             description="分析対象となりうる街の名前の一覧を取得します。このエージェントには入力として必要な情報はなく、[名前1, 名前2, ...]のように町の名前の文字列がリストになったものを応答として返します。")
         self._gml_dirs = gml_dirs
-
-    def _make_city_list(self, expression: str) -> str:
         ret = []
         target_attrib = 'city'
         for dir in self._gml_dirs:
@@ -21,7 +19,11 @@ class MakeCityList(Tool):
                 for layer_idx in range(stat.get_layer_count()):
                     val = stat.get_string_attribute_mean(layer_idx, target_attrib)
                     ret.extend(val.keys())
-        return list(set(ret))
+        self._city_list = list(set(ret))
+
+
+    def _make_city_list(self, expression: str) -> str:
+        return self._city_list
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

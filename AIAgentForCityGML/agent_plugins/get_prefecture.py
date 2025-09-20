@@ -12,8 +12,6 @@ class GetPrefecture(Tool):
             func=self._get_prefecture, 
             description="分析対象となりうる県の名前の一覧を取得します。このエージェントには入力として必要な情報はなく、[名前1, 名前2, ...]のように県の名前の文字列がリストになったものを応答として返します。")
         self._gml_dirs = gml_dirs
-
-    def _get_prefecture(self, expression: str) -> str:
         ret = []
         target_attrib = 'prefecture'
         for dir in self._gml_dirs:
@@ -22,7 +20,10 @@ class GetPrefecture(Tool):
                 for layer_idx in range(stat.get_layer_count()):
                     val = stat.get_string_attribute_mean(layer_idx, target_attrib)
                     ret.extend(val.keys())
-        return list(set(ret))
+        self._prefecture_list = list(set(ret))
+
+    def _get_prefecture(self, expression: str) -> str:
+        return self._prefecture_list
 
 
 if __name__ == '__main__':

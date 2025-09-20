@@ -5,6 +5,7 @@ import pkgutil
 from langchain.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
 import agent_plugins  # パッケージとしてimportしておく
+from dotenv import load_dotenv
 
 class AgentManager:
     def __init__(self):

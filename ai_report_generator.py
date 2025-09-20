@@ -1,6 +1,7 @@
 import sys
 import json
 import os
+from pathlib import Path
 
 sys.path.append('./AIAgentForCityGML')
 from AIAgentForCityGML.agent_manager import AgentManager
@@ -107,11 +108,19 @@ def test_create_pdf_from_dummy_data():
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("使い方: python extract_gml_features_all.py <ディレクトリパス>")
+        sys.exit(1)
+
+    base_dir = Path(sys.argv[1])
+    if not base_dir.is_dir():
+        print(f"ディレクトリが見つかりません: {base_dir}")
+        sys.exit(1)
    
     prompt = get_prompt()
     print(prompt)
 
-    agentManager = AgentManager()
+    agentManager = AgentManager([base_dir])
     response = agentManager.query(prompt)
     print('--- start ---')
     print(response)

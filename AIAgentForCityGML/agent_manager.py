@@ -8,8 +8,8 @@ import agent_plugins  # パッケージとしてimportしておく
 from dotenv import load_dotenv
 
 class AgentManager:
-    def __init__(self):
-        plugins = self._load_plugins()
+    def __init__(self, gml_dirs: list[dir]):
+        plugins = self._load_plugins(gml_dirs)
         
         load_dotenv()
         
@@ -26,7 +26,7 @@ class AgentManager:
         )
 
 
-    def _load_plugins(self):
+    def _load_plugins(self, gml_dirs: list[dir]):
         instances = []
 
         # plugins パッケージ内の全モジュールを列挙
@@ -39,7 +39,7 @@ class AgentManager:
             # モジュール内のクラスを走査して BasePlugin のサブクラスを取得
             for name, obj in inspect.getmembers(module, inspect.isclass):
                 if issubclass(obj, Tool) and obj is not Tool:
-                    instances.append(obj())  # インスタンス化
+                    instances.append(obj(gml_dirs))  # インスタンス化
 
         return instances
     
@@ -47,5 +47,5 @@ class AgentManager:
         return self._agent.run(message)
 
 if __name__ == "__main__":
-    agentManager = AgentManager()
+    agentManager = AgentManager([])
     print(agentManager.query('東京都２３区の建物について分析して日本語のレポートを作成してください。分析結果は次のようなjson形式で出力してください。[{"title":(分析タイトル名), [{"main_text": (説明文段落, null可), "image": (画像へのURL, , null可), "table": (表データ)}]}]'))

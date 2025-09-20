@@ -1,7 +1,7 @@
 from langchain.agents import Tool
 
 class Usage(Tool):
-    def __init__(self):
+    def __init__(self, gml_dirs: list[dir]):
         super().__init__( 
             name="Usage", 
             func=self._usage, 

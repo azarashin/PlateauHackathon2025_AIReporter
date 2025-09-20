@@ -1,3 +1,8 @@
+### Prepare
+
+下記のgoogle drive内のファイルをCityGMLDataフォルダ直下においてください。
+https://drive.google.com/drive/folders/1R74XBR-Hj9BJu1U73UK1PF3hWH0sEO4O?usp=drive_link
+
 ### Test
 
 【プロンプト：mainを以下のように設定した場合】

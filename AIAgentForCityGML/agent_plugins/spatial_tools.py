@@ -425,7 +425,11 @@ class RunSQL(Tool):
         )
 
     def _run(self, expression: str) -> str:
-        p = json.loads(expression)
+        try:
+            p = json.loads(expression)
+        except Exception as e:
+            return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+            
         db_path = p["db_path"]
         sql = p["sql"].strip().rstrip(";")
         as_geojson = bool(p.get("as_geojson", False))

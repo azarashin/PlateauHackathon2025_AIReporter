@@ -20,7 +20,7 @@ class AgentManager:
             lim, 
             agent="zero-shot-react-description", 
             verbose=True, 
-            max_iterations=3,    # 例：最大3ステップ
+            max_iterations=7,    # 例：最大7ステップ
             early_stopping_method="generate", 
             response_format="json"
         )

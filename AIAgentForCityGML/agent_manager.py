@@ -5,10 +5,13 @@ import pkgutil
 from langchain.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
 import agent_plugins  # パッケージとしてimportしておく
+from dotenv import load_dotenv
 
 class AgentManager:
     def __init__(self):
         plugins = self._load_plugins()
+        
+        load_dotenv()
 
         API_KEY = os.environ['OPEN_AI_API_KEY']
         lim = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=API_KEY)

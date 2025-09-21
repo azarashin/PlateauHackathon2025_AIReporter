@@ -178,7 +178,7 @@ class LoadSpatialDataset(Tool):
     返り値(JSON):
       {"db_path":"...","relation":"...","kind":"view|table","rows":12345}
     """
-    def __init__(self):
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
         super().__init__(
             name="LoadSpatialDataset",
             func=self._run,
@@ -350,7 +350,7 @@ class ProposeSQL(Tool):
       }
     返り値(JSON): {"sql":"SELECT ... LIMIT ...","notes":"..."}
     """
-    def __init__(self, llm: Optional[ChatOpenAI] = None):
+    def __init__(self, gml_dirs: Optional[List[str]] = None, llm: Optional[ChatOpenAI] = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(
@@ -423,7 +423,7 @@ class RunSQL(Tool):
       }
     返り値(JSON): {"columns":[...],"rows":[...]}
     """
-    def __init__(self):
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
         super().__init__(
             name="RunSQL",
             func=self._run,
@@ -491,13 +491,22 @@ class ComposeAnswer(Tool):
         return self._llm
 
     def _run(self, expression: str) -> str:
+        # 既に最終レポートJSON（abstract, sections 等）の場合はパススルー
         try:
             p = json.loads(expression)
-        except Exception as e:
+            if isinstance(p, dict) and ("abstract" in p and "sections" in p):
+                return json.dumps(p, ensure_ascii=False)
+        except Exception:
             return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
-        user_prompt = p["user_prompt"]
-        result = p["result"]
+
+        user_prompt = p.get("user_prompt", "")
+        result = p.get("result")
         style = p.get("style", "summary")
+        if result is None:
+            # result がない場合は与えられた本文/テキストをそのまま返すか、簡易JSONで返す
+            if "text" in p:
+                return json.dumps({"abstract": p.get("text"), "sections": [{"title": "概要", "content": [{"type": "text", "content": p.get("text")}]}]}, ensure_ascii=False)
+            return json.dumps({"error": "missing result"}, ensure_ascii=False)
 
         cols = result.get("columns", [])
         rows = result.get("rows", [])
@@ -543,7 +552,7 @@ class RunSQLSmart(Tool):
         "notes":"..."
       }
     """
-    def __init__(self, gml_dirs: list[dir], llm: Optional[ChatOpenAI] = None):
+    def __init__(self, gml_dirs: Optional[List[str]] = None, llm: Optional[ChatOpenAI] = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(
@@ -709,7 +718,7 @@ class RunHazardUtility(Tool):
     返り値(JSON): RunSQLSmartの返却そのまま（result, sql_history など）に utility と prompt を付与
     """
 
-    def __init__(self):
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
         super().__init__(
             name="RunHazardUtility",
             func=self._run,
@@ -845,7 +854,7 @@ class RunStatUtility(Tool):
     返り値: RunSQLSmart の出力に utility と params と prompt を付与
     """
 
-    def __init__(self):
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
         super().__init__(
             name="RunStatUtility",
             func=self._run,
@@ -925,7 +934,7 @@ class GenerateResidentReport(Tool):
     返り値: 日本語のテキスト（住民説明用の簡潔な資料）
     """
 
-    def __init__(self):
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
         super().__init__(
             name="GenerateResidentReport",
             func=self._run,
@@ -1032,7 +1041,7 @@ class OrchestrateQuery(Tool):
     返り値(JSON): 下流の返却（result/sql_history/notes）に route と utility を付与
     """
 
-    def __init__(self):
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
         super().__init__(
             name="OrchestrateQuery",
             func=self._run,
@@ -1040,13 +1049,17 @@ class OrchestrateQuery(Tool):
         )
 
     def _run(self, expression: str) -> str:
+        # 柔軟に入力を受け付ける（Agent からの呼び出しでキーが異なる場合があるため）
         try:
             p = json.loads(expression)
-        except Exception as e:
-            return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
-        db_path = p["db_path"]
-        relation = p["relation"]
-        user_prompt = p["user_prompt"]
+        except Exception:
+            # 非JSONはそのまま user_prompt として扱う
+            p = {"user_prompt": str(expression)}
+        db_path = p.get("db_path", "geo.duckdb")
+        relation = p.get("relation", "buildings")
+        user_prompt = p.get("user_prompt") or p.get("prompt") or p.get("query") or p.get("text") or ""
+        if not user_prompt:
+            return json.dumps({"error": "missing user_prompt"}, ensure_ascii=False)
         max_rows = int(p.get("max_rows", DEFAULT_LIMIT))
         retries = int(p.get("retries", 2))
         as_geojson = bool(p.get("as_geojson", False))

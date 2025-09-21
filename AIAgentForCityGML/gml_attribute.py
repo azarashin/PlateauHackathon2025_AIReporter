@@ -1,4 +1,5 @@
 import csv
+import logging
 from io import StringIO
 from pathlib import Path
 import sys
@@ -111,7 +112,7 @@ class CityGMLAttribute:
     """
     def __init__(self, base_dir):
         path = self.find_xlsx_file(f'{base_dir}/specification')
-        print(path)
+        logging.info(f'base_dir: {base_dir}, xml-path: {path}')
 
         # Excelファイルの読み込み（1つ目のシート）
         df = pd.read_excel(path, header=[0, 1], sheet_name="A.3.1_取得項目一覧", engine="openpyxl")

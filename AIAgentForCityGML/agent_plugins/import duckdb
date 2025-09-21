@@ -1,0 +1,5 @@
+import duckdb
+
+con = duckdb.connect('/home/ymtezo/3dcityjapan/PlateauHackathon2025_AIReporter/CityGMLData/plateau_buildings_osaka_duckdb.duckdb')
+print(con.execute("SELECT geom FROM geo LIMIT 1").fetchall())
+con.close()

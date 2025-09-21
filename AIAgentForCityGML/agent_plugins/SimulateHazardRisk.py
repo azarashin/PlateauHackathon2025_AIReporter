@@ -1,20 +1,3 @@
-    def generate_resident_report(self):
-        """
-        住民説明用のテキスト資料を自動生成
-        """
-        total = len(self.features)
-        flood_3m = self.count_buildings_with_flood_resistance(3.0)
-        flood_1m = len(self.query_buildings(min_flood_depth=1.0))
-        summary = self.summary_by_disaster_category()
-        lines = []
-        lines.append(f"本地区（大阪市内）には、合計{total}棟の建物データが登録されています。")
-        lines.append(f"このうち、3m以上の高さがあり、河川氾濫リスクが想定される建物は{flood_3m}棟です。")
-        lines.append(f"また、1m以上の浸水リスクがある建物は{flood_1m}棟存在します。")
-        lines.append("災害種別ごとの建物件数は以下の通りです：")
-        for cat, cnt in summary.items():
-            lines.append(f"  - {cat}: {cnt}棟")
-        lines.append("これらの情報は、立地適正化計画や防災対策の検討、住民の皆様への説明資料としてご活用いただけます。")
-        return "\n".join(lines)
 import json
 from pathlib import Path
 

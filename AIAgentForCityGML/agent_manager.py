@@ -7,6 +7,7 @@ from langchain.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
 import agent_plugins  # パッケージとしてimportしておく
 from dotenv import load_dotenv
+import re
 
 class AgentManager:
     def __init__(self, gml_dirs: list[dir]):
@@ -49,7 +50,25 @@ class AgentManager:
         return instances
     
     def query(self, message):
-        return self._agent.run(message)
+        try:
+            result = self._agent.run(message)
+            print("Parsed result:", result)
+            return result
+        except Exception as e:
+            # 例外メッセージ内に "Could not parse LLM output: <生出力>" が含まれる
+            msg = str(e)
+            m = re.search(r"Could not parse LLM output:\s*`?(.*)", msg, re.S)
+            if m:
+                raw_output = m.group(1).strip("`")
+                print("=== Raw LLM output ===")
+                print(raw_output)
+                m = re.search(r"\{.*\}", raw_output, flags=re.S)
+                if not m:
+                    raise ValueError("JSON 部分が見つかりません")
+                json_part = m.group(0)
+                return json_part
+            else:
+                raise
 
 if __name__ == "__main__":
     agentManager = AgentManager([])

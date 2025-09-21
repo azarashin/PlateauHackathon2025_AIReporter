@@ -24,6 +24,8 @@ Action Input は純粋なJSONオブジェクトのみ。json.dumpsやクォー�
   "area":{"names":[{{TARGET_AREA}}],"index_json":"./CityGMLData/city_codes_osaka_structured.json"}
 }
 
+
+
 【出力形式】
 分析結果は次のようなjson形式で出力してください。
 {

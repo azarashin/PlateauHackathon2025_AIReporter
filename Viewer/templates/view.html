@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF プレビュー</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .actions { margin-bottom: 1rem; }
+    iframe { width: 100%; height: 80vh; border: 1px solid #ddd; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PDF プレビュー</h1>
+    <div class="actions">
+      <a href="{{ url_for('index') }}">← 入力に戻る</a>
+    </div>
+    {% if exists %}
+      <iframe src="{{ pdf_url }}"></iframe>
+    {% else %}
+      <p>PDF がまだ生成されていません。入力画面から生成してください。</p>
+    {% endif %}
+  </div>
+</body>
+</html>

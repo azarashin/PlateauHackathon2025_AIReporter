@@ -145,7 +145,7 @@ def test_create_pdf_from_dummy_data():
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print("使い方: python extract_gml_features_all.py <ディレクトリパス>")
+        print("使い方: python ai_report_generator.py <ディレクトリパス>")
         sys.exit(1)
 
     base_dir = Path(sys.argv[1])

@@ -1,8 +1,9 @@
 import json
 from pathlib import Path
+from langchain.tools import Tool
 
 
-class SimulateHazardRisk:
+class SimulateHazardRisk(Tool):
     # --- 拡張性のための設計コメント ---
     # 今後、matplotlibやfolium等を用いた地図・グラフ画像生成機能を追加可能
     # 例: 建物分布の地図可視化、災害リスク分布のヒートマップ、集計グラフなど
@@ -38,6 +39,28 @@ class SimulateHazardRisk:
         self.geojson_path = Path(geojson_path)
         self.features = []
         self._load_data()
+        
+        # Toolクラスの初期化
+        super().__init__(
+            name="SimulateHazardRisk",
+            func=self._run,
+            description="災害リスク分析と住民説明資料生成ツール"
+        )
+    
+    def _run(self, query: str) -> str:
+        """Toolの実行メソッド"""
+        try:
+            if "住民説明" in query or "レポート" in query:
+                return self.generate_resident_report()
+            elif "建物件数" in query:
+                return f"3m以上の建物件数: {self.count_buildings_with_flood_resistance(3.0)}"
+            elif "災害カテゴリ" in query:
+                summary = self.summary_by_disaster_category()
+                return f"災害カテゴリ別集計: {summary}"
+            else:
+                return self.generate_resident_report()
+        except Exception as e:
+            return f"エラーが発生しました: {e}"
 
     def _load_data(self):
         try:

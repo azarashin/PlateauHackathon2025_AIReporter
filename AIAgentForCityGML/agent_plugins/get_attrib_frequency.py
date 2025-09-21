@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 
-from AIAgentForCityGML.gml_stats_manager import GmlStatManager
+from ..gml_stats_manager import GmlStatManager
 from langchain.agents import Tool
 
 class GetStringAttributeFrequency(Tool):

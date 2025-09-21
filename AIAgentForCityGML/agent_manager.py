@@ -42,7 +42,7 @@ class AgentManager:
         
         def hazard_report(query: str) -> str:
             """災害リスクレポート生成ツール"""
-            return "災害リスク分析レポート: 大阪市此花区では河川氾濫、津波、高潮のリスクが確認されています。具体的な浸水深データと建物の耐水性能を分析しました。"
+            return "災害リスク分析レポート: 大阪市此花区では河川氾濫、津波、高潮のリスクが確認されています。HazardFAQDataツールを使用してランク別建物数集計を実行してください。"
         
         def e_stat_analysis(query: str) -> str:
             """e-Stat統計データ分析ツール"""
@@ -54,11 +54,11 @@ class AgentManager:
         
         def building_analysis(query: str) -> str:
             """建物データ分析ツール"""
-            return "建物データ分析: 大阪市此花区の建物は住宅が70%、商業施設が20%、工場が10%の構成です。築30年以上の建物が40%を占め、耐震・耐水性能の向上が必要です。"
+            return "建物データ分析: 大阪市此花区の建物は住宅が70%、商業施設が20%、工場が10%の構成です。HazardFAQDataツールを使用して災害種類とランク別の詳細集計を実行してください。"
         
         def hazard_faq_analysis(query: str) -> str:
             """災害FAQデータ分析ツール"""
-            return "災害FAQデータ分析: 災害リスク、立地適正化計画に関するFAQデータを提供します。"
+            return "災害FAQデータ分析: 災害リスク、立地適正化計画に関するFAQデータを提供します。HazardFAQDataツールを使用してランク別建物数集計を実行してください。"
         
         # HazardFAQDataクラスをインポートして使用
         try:

@@ -2,8 +2,8 @@ import os
 import sys
 from pathlib import Path
 
-from AIAgentForCityGML.agent_plugins.get_attrib_frequency import GetStringAttributeFrequency
-from AIAgentForCityGML.gml_stats_manager import GmlStatManager
+from .get_attrib_frequency import GetStringAttributeFrequency
+from ..gml_stats_manager import GmlStatManager
 from langchain.agents import Tool
 
 class BuidingStructureTypeFrequencyForBuilding(GetStringAttributeFrequency):

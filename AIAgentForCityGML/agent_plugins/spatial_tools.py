@@ -178,7 +178,7 @@ class LoadSpatialDataset(Tool):
     返り値(JSON):
       {"db_path":"...","relation":"...","kind":"view|table","rows":12345}
     """
-    def __init__(self):
+    def __init__(self, gml_dirs: list[dir]):
         super().__init__(
             name="LoadSpatialDataset",
             func=self._run,
@@ -347,7 +347,7 @@ class ProposeSQL(Tool):
       }
     返り値(JSON): {"sql":"SELECT ... LIMIT ...","notes":"..."}
     """
-    def __init__(self, llm: Optional[ChatOpenAI] = None):
+    def __init__(self, gml_dirs: list[dir], llm: Optional[ChatOpenAI] = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(
@@ -417,7 +417,7 @@ class RunSQL(Tool):
       }
     返り値(JSON): {"columns":[...],"rows":[...]}
     """
-    def __init__(self):
+    def __init__(self, gml_dirs: list[dir]):
         super().__init__(
             name="RunSQL",
             func=self._run,
@@ -709,7 +709,7 @@ if __name__ == "__main__":
         raise SystemExit(ctx)
 
     # 2) 自然文 → SQL → 実行（自己修正つき）
-    smart = RunSQLSmart()
+    smart = RunSQLSmart([])
     run_raw = smart.run(json.dumps({
         "db_path": ctx["db_path"],
         "relation": ctx["relation"],
@@ -723,7 +723,7 @@ if __name__ == "__main__":
     run = json.loads(run_raw)
     if "result" in run:
         # 3) 結果を自然言語で整形
-        composer = ComposeAnswer()
+        composer = ComposeAnswer([])
         answer = composer.run(json.dumps({
             "user_prompt": "detailed Usage別に件数を集計して",
             "result": run["result"],

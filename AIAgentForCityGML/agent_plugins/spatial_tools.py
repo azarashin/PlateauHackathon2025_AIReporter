@@ -692,7 +692,7 @@ if __name__ == "__main__":
         os.environ["OPENAI_API_KEY"] = os.getenv("OPEN_AI_API_KEY")
 
     # 1) まずはデータを読み込む（例: GeoJSON を view 化）
-    loader = LoadSpatialDataset()
+    loader = LoadSpatialDataset([])
     ctx_raw = loader.run(json.dumps({
         "source_type": "duckdb",          # "parquet" / "geoparquet" / "duckdb" も可
         "path": "./CityGMLData/plateau_buildings_osaka_duckdb.duckdb",    # 要置き換え

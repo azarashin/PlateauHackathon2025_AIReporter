@@ -1,12 +1,38 @@
 import sys
 import json
 import os
+from pathlib import Path
 
 sys.path.append('./AIAgentForCityGML')
 from AIAgentForCityGML.agent_manager import AgentManager
 
 sys.path.append('./ReportGenerator')
 from ReportGenerator.paper_generator import PaperGenerator
+
+class Author:
+    def __init__(self, json):
+        print(json)
+        self.name = json["name"]
+        self.organization = json["organization"]
+    
+    def __repr__(self) -> str:
+        return (f"Author(name={self.name!r}, "
+                f"organization={self.organization!r})")
+
+class ReportConfig:
+    def __init__(self):
+        # JSONファイルから読み込む場合
+        with open("report_config.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+            self.title = data["title"]
+            self.sub_title = data["sub-title"]
+            self.authors = [Author(d) for d in data["authors"]]
+
+    def __repr__(self) -> str:
+        return (f"ReportInfo(title={self.title!r}, "
+                f"sub_title={self.sub_title!r}, "
+                f"authors={self.authors!r})")
+
 
 def get_prompt() -> str:
     purpose_list = []
@@ -68,24 +94,22 @@ def convert_attributed_table(source):
 
     # scalar -> single-cell
     return [["値"], [str(source)]]
-        
-        
+
 
 def generate_report(response: str, output_path: str):
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    font_path = os.path.join(base_dir, 'ReportGenerator', 'Shippori_Mincho', 'ShipporiMincho-Regular.ttf')
-    pg = PaperGenerator('ShipporiMincho', font_path)
-    abstract_text = (
-        "ここに論文の概要(Abstract)を記載します。"
-        "この部分は1段組みで小さな文字サイズです。"
-        "ReportLabを用いてタイトルページから本文、引用文献まで自動生成する手法を示します。"
-    )
-    pg.set_title('論文タイトル：PythonによるPDF論文自動生成')
-    pg.set_abstract(abstract_text)
+    pg = PaperGenerator('ShipporiMincho', './ReportGenerator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
+    config = ReportConfig()
+    pg.set_title(config.title)
+    pg.set_sub_title(config.sub_title)
+    for author in config.authors:
+        pg.add_author(author.name, author.organization)
 
         
     json_data = json.loads(response)
-    for section in json_data:
+
+
+    pg.set_abstract(json_data["abstract"])
+    for section in json_data["sections"]:
         if not "title" in section:
             continue
         if not "content" in section:
@@ -120,12 +144,23 @@ def test_create_pdf_from_dummy_data():
 
 
 if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("使い方: python extract_gml_features_all.py <ディレクトリパス>")
+        sys.exit(1)
+
+    base_dir = Path(sys.argv[1])
+    if not base_dir.is_dir():
+        print(f"ディレクトリが見つかりません: {base_dir}")
+        sys.exit(1)
+   
     prompt = get_prompt()
     print(prompt)
 
-    agentManager = AgentManager()
+    agentManager = AgentManager([base_dir])
     response = agentManager.query(prompt)
+    print('--- start ---')
     print(response)
+    print('--- end ---')
     print(type(response))
     generate_report(response, 'result.pdf')
 

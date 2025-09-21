@@ -1,7 +1,7 @@
 from langchain.agents import Tool
 
 class Calculator(Tool):
-    def __init__(self):
+    def __init__(self, gml_dirs: list[dir]):
         super().__init__( 
             name="Calclator", 
             func=self._calculator, 

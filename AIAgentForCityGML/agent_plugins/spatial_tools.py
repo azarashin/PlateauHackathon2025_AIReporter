@@ -425,7 +425,11 @@ class RunSQL(Tool):
         )
 
     def _run(self, expression: str) -> str:
-        p = json.loads(expression)
+        try:
+            p = json.loads(expression)
+        except Exception as e:
+            return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+            
         db_path = p["db_path"]
         sql = p["sql"].strip().rstrip(";")
         as_geojson = bool(p.get("as_geojson", False))
@@ -465,7 +469,7 @@ class ComposeAnswer(Tool):
       }
     返り値: 文字列（日本語の最終応答）
     """
-    def __init__(self, llm: Optional[ChatOpenAI] = None):
+    def __init__(self, gml_dirs: list[dir], llm: Optional[ChatOpenAI] = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(
@@ -530,7 +534,7 @@ class RunSQLSmart(Tool):
         "notes":"..."
       }
     """
-    def __init__(self, llm: Optional[ChatOpenAI] = None):
+    def __init__(self, gml_dirs: list[dir], llm: Optional[ChatOpenAI] = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(

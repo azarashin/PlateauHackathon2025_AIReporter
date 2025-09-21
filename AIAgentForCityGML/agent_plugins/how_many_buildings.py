@@ -1,7 +1,7 @@
 from langchain.agents import Tool
 
 class HowManyBuildings(Tool):
-    def __init__(self):
+    def __init__(self, gml_dirs: list[dir]):
         super().__init__( 
             name="HowManyBuildings", 
             func=self._how_many_buildings, 

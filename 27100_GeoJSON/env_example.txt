@@ -1,0 +1,9 @@
+# データベース設定
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=plateau_buildings
+DB_USER=postgres
+DB_PASSWORD=your_password_here
+
+# インポート設定
+BATCH_SIZE=1000

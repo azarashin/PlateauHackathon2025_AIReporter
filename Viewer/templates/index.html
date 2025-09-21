@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI レポート ビューワー</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    textarea { width: 100%; min-height: 120px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .card { padding: 1rem; border: 1px solid #ddd; border-radius: 8px; }
+    .actions { margin-top: 1rem; }
+    button { padding: 0.6rem 1.2rem; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AI レポート ビューワー</h1>
+    <div class="card">
+      <form method="POST" action="{{ url_for('generate') }}">
+        <label for="purposes">レポートの目的（複数行可・1行1項目）</label>
+        <textarea id="purposes" name="purposes" placeholder="例:\n- 建物用途の傾向を把握\n- 公園と住宅の分布比較"></textarea>
+        <br /><br />
+        <label for="areas">対象地域（複数行可・1行1地域）</label>
+        <textarea id="areas" name="areas" placeholder="例:\n大阪市 北区\n大阪市 中央区"></textarea>
+        <div class="actions">
+          <button type="submit">PDF を生成</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

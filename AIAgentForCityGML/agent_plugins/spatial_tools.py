@@ -22,7 +22,7 @@ DuckDB × LangChain（Pythonスクリプト前提）
 """
 
 from __future__ import annotations
-import json, os, pathlib, re
+import json, os, pathlib, re, ast
 from typing import Optional, List, Dict, Any
 
 import duckdb
@@ -188,8 +188,11 @@ class LoadSpatialDataset(Tool):
     def _run(self, expression: str) -> str:
         try:
             p = json.loads(expression)
-        except Exception as e:
-            return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
         source_type = p["source_type"].lower()
         path = _norm(p["path"]) if source_type != "duckdb" else p["path"]
         db_path = p.get("db_path", "geo.duckdb")
@@ -368,12 +371,30 @@ class ProposeSQL(Tool):
     def _run(self, expression: str) -> str:
         try:
             p = json.loads(expression)
-        except Exception as e:
-            return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
-        db_path = p["db_path"]
-        relation = p["relation"]
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+        db_path = p.get("db_path", "geo.duckdb")
+        relation = p.get("relation", "buildings")
         max_rows = int(p.get("max_rows", DEFAULT_LIMIT))
-        user_prompt = p["user_prompt"]
+        user_prompt = p.get("user_prompt")
+
+        # 別形式（columns/group_by/limit 指定）の補助: user_prompt を合成
+        if not user_prompt:
+            cols = p.get("columns")
+            grp = p.get("group_by")
+            lim = p.get("limit", max_rows)
+            if cols or grp:
+                cols_str = ", ".join(cols) if isinstance(cols, list) else str(cols)
+                grp_str = ", ".join(grp) if isinstance(grp, list) else str(grp)
+                user_prompt = (
+                    f"テーブル {relation} から {grp_str} ごとに {cols_str} を出力してください。"
+                    f"{grp_str} で GROUP BY し、必要なら count の多い順に並べ、LIMIT {int(lim)} 以下にしてください。"
+                )
+            else:
+                return json.dumps({"error": "missing user_prompt"}, ensure_ascii=False)
 
         con = _connect(db_path)
         meta = _relation_preview(con, relation)
@@ -640,13 +661,43 @@ class RunSQLSmart(Tool):
             con.close()
 
     def _run(self, expression: str) -> str:
+        # 2モード対応:
+        # A) 提案+実行: {db_path, relation, user_prompt, ...}
+        # B) 直接実行:   {sql, db_path?, as_geojson?}
         try:
             p = json.loads(expression)
-        except Exception as e:
-            return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
-        db_path = p["db_path"]
-        relation = p["relation"]
-        user_prompt = p["user_prompt"]
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+
+        # 直接実行モード
+        if isinstance(p, dict) and "sql" in p and p.get("user_prompt") is None and p.get("relation") is None:
+            db_path = p.get("db_path", "geo.duckdb")
+            as_geojson = bool(p.get("as_geojson", False))
+            sql = str(p.get("sql", "")).strip()
+            if not sql:
+                return json.dumps({"error": "missing sql"}, ensure_ascii=False)
+            result = self._try_execute(db_path, sql, as_geojson)
+            if "error" in result:
+                return json.dumps({
+                    "error": result["error"],
+                    "sql_history": [{"sql": result.get("sql", sql), "status": "error", "error": result["error"]}],
+                    "notes": "direct sql error"
+                }, ensure_ascii=False)
+            return json.dumps({
+                "result": {"columns": result["columns"], "rows": result["rows"]},
+                "sql_history": [{"sql": result["sql_used"], "status": "ok", "error": None}],
+                "notes": "direct sql"
+            }, ensure_ascii=False)
+
+        # 提案+実行モード
+        db_path = p.get("db_path", "geo.duckdb")
+        relation = p.get("relation", "buildings")
+        user_prompt = p.get("user_prompt") or ""
+        if not user_prompt:
+            return json.dumps({"error": "missing user_prompt"}, ensure_ascii=False)
         max_rows = int(p.get("max_rows", DEFAULT_LIMIT))
         retries = int(p.get("retries", 2))
         as_geojson = bool(p.get("as_geojson", False))
@@ -1104,6 +1155,202 @@ class OrchestrateQuery(Tool):
             out = json.loads(out_raw)
             out["route"] = "general"
             return json.dumps(out, ensure_ascii=False)
+
+
+# =============================== ⑧ ハザード専用パイプラインツール群 ===============================
+DEFAULT_HAZARD_DATASET = {
+    "source_type": "duckdb",
+    "path": "./CityGMLData/plateau_buildings_osaka_duckdb.duckdb",
+    "db_path": "geo.duckdb",
+    "relation": "buildings",
+    "mode": "view",
+    "srid": 4326,
+    "add_bbox_columns": True
+}
+
+
+class HazardLoadData(Tool):
+    """
+    ハザード分析用データのロード専用ツール。
+
+    入力JSON（省略可）:
+      { "dataset": { LoadSpatialDataset と同等の引数 }, "merge": true }
+    省略/空なら既定(DEFAULT_HAZARD_DATASET)を使用。merge=true の場合は既定に上書きマージ。
+
+    返り値: LoadSpatialDataset の返却(JSON)
+    """
+
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
+        super().__init__(name="HazardLoadData", func=self._run, description="ハザード用データを既定/指定でロードする。")
+
+    def _run(self, expression: str) -> str:
+        try:
+            p = json.loads(expression) if expression else {}
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                p = {}
+        ds = p.get("dataset", {}) or {}
+        merge = bool(p.get("merge", True))
+        payload = dict(DEFAULT_HAZARD_DATASET)
+        if merge and isinstance(ds, dict):
+            payload.update(ds)
+        elif ds:
+            payload = ds
+        loader = LoadSpatialDataset()
+        return loader.run(json.dumps(payload, ensure_ascii=False))
+
+
+class HazardProposeAndRun(Tool):
+    """
+    ハザード系ユーティリティ or ハザード自然文を提案+実行。
+
+    入力JSON:
+      {
+        "db_path":"geo.duckdb",
+        "relation":"buildings",
+        "utility":"flood_height_and_river_risk|flood_depth_ge|summary_by_disaster_category|total_buildings",  # 任意
+        "params": { ... },     # 任意（ユーティリティ用）
+        "user_prompt":"..."   # 任意（自然文; 指定時はルーターでユーティリティ推定）
+      }
+    返り値: RunHazardUtility or RunSQLSmart の結果(JSON)に route/utility/prompt を付与
+    """
+
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
+        super().__init__(name="HazardProposeAndRun", func=self._run, description="ハザード自然文またはユーティリティを実行。")
+
+    def _run(self, expression: str) -> str:
+        try:
+            p = json.loads(expression)
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+        db_path = p.get("db_path", "geo.duckdb")
+        relation = p.get("relation", "buildings")
+        utility = p.get("utility")
+        params = p.get("params", {})
+        user_prompt = p.get("user_prompt")
+
+        if utility:
+            runner = RunHazardUtility()
+            raw = runner.run(json.dumps({
+                "db_path": db_path, "relation": relation, "utility": utility, "params": params
+            }, ensure_ascii=False))
+            out = json.loads(raw)
+            out["route"] = "hazard"
+            return json.dumps(out, ensure_ascii=False)
+
+        if user_prompt:
+            # ルーターでユーティリティ推定
+            util, pr = HazardAggregationRouter.pick_utility(user_prompt)
+            pr.update(params or {})
+            runner = RunHazardUtility()
+            raw = runner.run(json.dumps({
+                "db_path": db_path, "relation": relation, "utility": util, "params": pr
+            }, ensure_ascii=False))
+            out = json.loads(raw)
+            out["route"] = "hazard"
+            return json.dumps(out, ensure_ascii=False)
+
+        return json.dumps({"error": "missing utility or user_prompt"}, ensure_ascii=False)
+
+
+class HazardReport(Tool):
+    """
+    住民説明向けの簡易ハザードレポートを生成。
+    入力JSON: { "db_path":"geo.duckdb", "relation":"buildings", "area_name":"大阪市内" }
+    返り値: テキスト
+    """
+
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
+        super().__init__(name="HazardReport", func=self._run, description="ハザードの住民説明レポートを生成する。")
+
+    def _run(self, expression: str) -> str:
+        try:
+            p = json.loads(expression)
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+        rep = GenerateResidentReport()
+        return rep.run(json.dumps(p, ensure_ascii=False))
+
+
+class RunHazardPipeline(Tool):
+    """
+    ハザード専用パイプライン（一括実行）
+
+    入力JSON:
+      {
+        "dataset": { LoadSpatialDataset と同等 },   # 任意
+        "tasks": [                                   # 任意: ユーティリティまたはタスク指定
+          "summary_by_disaster_category",
+          {"utility":"flood_height_and_river_risk", "params":{"min_height":3.0}}
+        ],
+        "prompts": ["河川氾濫の建物件数"],             # 任意: 自然文での追加ハザード問合せ
+        "generate_report": true,                     # 任意
+        "area_name": "大阪市内"                        # 任意
+      }
+    返り値:
+      {
+        "load_ctx": {...},
+        "steps": [ {"kind":"utility|prompt", "input":..., "output":...}, ...],
+        "report": "..."  # generate_report=true の場合
+      }
+    """
+
+    def __init__(self, gml_dirs: Optional[List[str]] = None):
+        super().__init__(name="RunHazardPipeline", func=self._run, description="ハザードデータのロード→集計→レポートを一括実行。")
+
+    def _run(self, expression: str) -> str:
+        try:
+            p = json.loads(expression) if expression else {}
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                p = {}
+
+        # 1) ロード
+        loader = HazardLoadData()
+        load_raw = loader.run(json.dumps({
+            "dataset": p.get("dataset", {}),
+            "merge": True
+        }, ensure_ascii=False))
+        load_ctx = json.loads(load_raw)
+        if "error" in load_ctx:
+            return json.dumps({"error": load_ctx["error"], "stage": "load"}, ensure_ascii=False)
+        db_path = load_ctx.get("db_path", DEFAULT_HAZARD_DATASET["db_path"])  # type: ignore
+        relation = load_ctx.get("relation", DEFAULT_HAZARD_DATASET["relation"])  # type: ignore
+
+        # 2) タスク実行
+        steps = []
+        runner = HazardProposeAndRun()
+        for t in (p.get("tasks") or []):
+            if isinstance(t, str):
+                raw = runner.run(json.dumps({"db_path": db_path, "relation": relation, "utility": t}, ensure_ascii=False))
+                steps.append({"kind": "utility", "input": t, "output": json.loads(raw)})
+            elif isinstance(t, dict):
+                util = t.get("utility"); params = t.get("params", {})
+                raw = runner.run(json.dumps({"db_path": db_path, "relation": relation, "utility": util, "params": params}, ensure_ascii=False))
+                steps.append({"kind": "utility", "input": t, "output": json.loads(raw)})
+
+        # 3) 自然文プロンプト実行
+        for q in (p.get("prompts") or []):
+            raw = runner.run(json.dumps({"db_path": db_path, "relation": relation, "user_prompt": q}, ensure_ascii=False))
+            steps.append({"kind": "prompt", "input": q, "output": json.loads(raw)})
+
+        # 4) レポート
+        report_text = None
+        if bool(p.get("generate_report", False)):
+            rep = HazardReport()
+            report_text = rep.run(json.dumps({"db_path": db_path, "relation": relation, "area_name": p.get("area_name", "大阪市内")}, ensure_ascii=False))
+
+        return json.dumps({"load_ctx": load_ctx, "steps": steps, "report": report_text}, ensure_ascii=False)
 
 
 # =============================== サンプル実行 ===============================

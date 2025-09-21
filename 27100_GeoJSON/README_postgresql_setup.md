@@ -1,6 +1,6 @@
-# Building_optimized.geojson の PostgreSQL データベース化
+# PLATEAU データの PostgreSQL データベース化
 
-このドキュメントでは、`Building_optimized.geojson` ファイルを PostgreSQL データベースに格納する手順を説明します。
+このドキュメントでは、PLATEAUデータ（建物データ + 大阪市都市計画データ）を PostgreSQL データベースに格納する手順を説明します。
 
 ## 前提条件
 
@@ -77,14 +77,27 @@ psql -U postgres -d plateau_buildings -f database_schema.sql
 
 ## 5. データのインポート
 
-### 基本インポート（メモリ使用量が多い）
+### 方法1: 既存のダンプファイルから復元（推奨）
 ```bash
-python geojson_to_postgresql.py
+# データベースの復元
+gunzip -c plateau_buildings_dump.sql.gz | psql -U h-hibara -d plateau_buildings
 ```
 
-### 最適化インポート（推奨）
+### 方法2: 個別ファイルからインポート
+
+#### 建物データのインポート
 ```bash
+# 基本インポート（メモリ使用量が多い）
+python geojson_to_postgresql.py
+
+# 最適化インポート（推奨）
 python optimized_geojson_importer.py
+```
+
+#### 27100_*都市計画データのインポート
+```bash
+# 大阪市の都市計画データ（道路、公園、用途地域など）をインポート
+python import_27100_geojson.py
 ```
 
 ## 6. インポート結果の確認
@@ -102,9 +115,21 @@ SELECT COUNT(*) FROM buildings;
 -- 災害リスクデータの件数確認
 SELECT COUNT(*) FROM disaster_risks;
 
+-- 都市計画データの件数確認
+SELECT data_type, COUNT(*) as count
+FROM urban_planning_data 
+GROUP BY data_type
+ORDER BY count DESC;
+
 -- サンプルデータの確認
 SELECT id, class, measured_height, ST_AsText(geometry) as location 
 FROM buildings 
+LIMIT 5;
+
+-- 都市計画データのサンプル
+SELECT data_type, feature_id, properties->>'name' as name
+FROM urban_planning_data 
+WHERE data_type = '公園'
 LIMIT 5;
 
 -- 災害リスクの集計
@@ -116,6 +141,7 @@ GROUP BY disaster_category;
 
 ## 7. 地理空間クエリの例
 
+### 建物データのクエリ
 ```sql
 -- 特定の座標範囲内の建物を検索
 SELECT id, class, measured_height
@@ -141,6 +167,36 @@ WHERE dr.depth > 3.0
 ORDER BY dr.depth DESC;
 ```
 
+### 都市計画データのクエリ
+```sql
+-- 特定エリア内の公園を検索
+SELECT data_type, feature_id, properties->>'ParkName' as park_name
+FROM urban_planning_data 
+WHERE data_type = '公園'
+AND ST_Contains(
+    ST_MakeEnvelope(135.4, 34.6, 135.5, 34.7, 6668),
+    geometry
+);
+
+-- 道路データの検索
+SELECT data_type, feature_id, properties->>'DouroType' as road_type
+FROM urban_planning_data 
+WHERE data_type = '道路'
+AND ST_Intersects(
+    ST_MakeEnvelope(135.4, 34.6, 135.5, 34.7, 6668),
+    geometry
+);
+
+-- 用途地域データの検索
+SELECT data_type, feature_id, properties
+FROM urban_planning_data 
+WHERE data_type = '用途'
+AND ST_Contains(
+    ST_MakeEnvelope(135.4, 34.6, 135.5, 34.7, 6668),
+    geometry
+);
+```
+
 ## 8. パフォーマンス最適化
 
 ### インデックスの確認
@@ -157,6 +213,7 @@ EXPLAIN ANALYZE SELECT * FROM buildings WHERE class = '普通建物';
 -- 統計情報の更新
 ANALYZE buildings;
 ANALYZE disaster_risks;
+ANALYZE urban_planning_data;
 ```
 
 ## 9. トラブルシューティング
@@ -224,4 +281,15 @@ def get_building(building_id):
 
 ## まとめ
 
-このセットアップにより、約61万件の建物データを効率的にPostgreSQLデータベースに格納し、地理空間クエリや災害リスク分析を行うことができます。PostGISの強力な地理空間機能を活用して、様々な分析やアプリケーション開発が可能になります。
+このセットアップにより、以下のデータを効率的にPostgreSQLデータベースに格納し、地理空間クエリや都市計画分析を行うことができます：
+
+### 含まれるデータ
+- **建物データ**: 約61万件の建物情報と災害リスクデータ
+- **都市計画データ**: 道路、公園、用途地域、高度地区、風致地区など
+
+### データベース構造
+- `buildings`: 建物の基本情報と地理空間データ
+- `disaster_risks`: 建物の災害リスク情報（正規化）
+- `urban_planning_data`: 都市計画データ（汎用テーブル）
+
+PostGISの強力な地理空間機能を活用して、建物と都市計画データを組み合わせた高度な分析やアプリケーション開発が可能になります。

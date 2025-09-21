@@ -24,7 +24,31 @@ Action Input は純粋なJSONオブジェクトのみ。json.dumpsやクォー�
   "area":{"names":[{{TARGET_AREA}}],"index_json":"./CityGMLData/city_codes_osaka_structured.json"}
 }
 
+【ツールの使用について：「建物現況」を求めるケース】
+GetStringAttributeFrequency Toolを使うこと。
 
+【ツールの使用について：「ハザード」を求めるケース】
+以下のツール群を使用すること。
+1. LoadSpatialDataset Tool
+2. ProposeSQL Tool
+3. RunSQLSmart Tool または RunSQL Tool
+4. ComposeAnswer Tool
+5. RunHazardUtility Tool
+6. RunStatUtility Tool
+7. GenerateResidentReport Tool
+8. OrchestrateQuery Tool
+
+Action Input は純粋なJSONオブジェクトのみ。json.dumpsやクォートは禁止。
+以下のペイロードをそのまま使え：
+{
+    "source_type": "duckdb",
+    "path": "./CityGMLData/plateau_buildings_osaka_duckdb.duckdb",
+    "db_path": "geo.duckdb",
+    "relation": "buildings",
+    "mode": "view",
+    "srid": 4326,
+    "add_bbox_columns": True
+}
 
 【出力形式】
 分析結果は次のようなjson形式で出力してください。

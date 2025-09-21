@@ -1,1 +1,3 @@
-*.geojson
+Building_optimized.geojson
+BuildingPart.geojson
+plateau_buildings_dump.sql.gz

@@ -134,12 +134,35 @@ class PaperGenerator(PaperGeneratorInterface):
         if len(data) == 0:
             return
         # Table オブジェクト生成
-        data = self._transpose(data)
-        for line in data:
-            quant = self._get_quantize(line[1:])
-            line[0] = self._get_table_value(line[0], 0)
-            line[1:] = [self._get_table_value(d, quant) for d in line[1:]]
-        data = self._transpose(data)
+        # 辞書型のデータをリスト形式に変換
+        if isinstance(data[0], dict):
+            # 辞書型の場合、ヘッダーとデータ行に分離
+            headers = list(data[0].keys())
+            # ヘッダー行もParagraphオブジェクトに変換
+            header_paragraphs = [Paragraph(header, self._table_number_style) for header in headers]
+            rows = [header_paragraphs]  # ヘッダー行
+            for item in data:
+                # 各セルをParagraphオブジェクトに変換して日本語表示を改善
+                row_data = []
+                for key in headers:
+                    cell_value = str(item[key])
+                    # 数値の場合はそのまま、文字列の場合はParagraphオブジェクトに変換
+                    try:
+                        # 数値として解析できるかチェック
+                        float(cell_value.replace(',', ''))
+                        row_data.append(cell_value)
+                    except ValueError:
+                        # 数値でない場合はParagraphオブジェクトに変換
+                        row_data.append(Paragraph(cell_value, self._table_number_style))
+                rows.append(row_data)
+            data = rows
+        else:
+            # 既にリスト形式の場合
+            for line in data:
+                if len(line) > 1:
+                    quant = self._get_quantize(line[1:])
+                    line[0] = self._get_table_value(line[0], 0)
+                    line[1:] = [self._get_table_value(d, quant) for d in line[1:]]
 
         table = LongTable(data)  # 列幅をpt単位で指定（省略可）
 
@@ -147,10 +170,14 @@ class PaperGenerator(PaperGeneratorInterface):
         table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),   # 1行目背景色
             ('TEXTCOLOR',  (0,0), (-1,0), colors.black),       # 1行目文字色
+            ('TEXTCOLOR',  (0,1), (-1,-1), colors.black),      # データ行文字色
             ('ALIGN',      (0,0), (-1,-1), 'CENTER'),          # 全セル中央寄せ
             ('GRID',       (0,0), (-1,-1), 0.5, colors.grey),  # 枠線
-            ('FONTNAME',   (0,0), (-1,0), self._font),   # 1行目フォント太字
+            ('FONTNAME',   (0,0), (-1,-1), self._font),        # 全セルにフォント適用
+            ('FONTSIZE',   (0,0), (-1,-1), 9),                 # フォントサイズ
             ('BOTTOMPADDING', (0,0), (-1,0), 8),               # 1行目下余白
+            ('TOPPADDING', (0,0), (-1,-1), 6),                 # 上余白
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),              # 下余白
         ]))
 
         index = len(self._tables) + 1

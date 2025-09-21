@@ -72,7 +72,9 @@ def convert_attributed_table(source):
         
 
 def generate_report(response: str, output_path: str):
-    pg = PaperGenerator('ShipporiMincho', './ReportGenerator/Shippori_Mincho/ShipporiMincho-Regular.ttf')
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    font_path = os.path.join(base_dir, 'ReportGenerator', 'Shippori_Mincho', 'ShipporiMincho-Regular.ttf')
+    pg = PaperGenerator('ShipporiMincho', font_path)
     abstract_text = (
         "ここに論文の概要(Abstract)を記載します。"
         "この部分は1段組みで小さな文字サイズです。"

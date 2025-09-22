@@ -5,6 +5,7 @@ import os
 import pkgutil
 from langchain.agents import initialize_agent, Tool
 from langchain_openai import ChatOpenAI
+from AIAgentForCityGML.agent_plugins.get_attrib_frequency import GetStringAttributeFrequency
 import agent_plugins  # パッケージとしてimportしておく
 from dotenv import load_dotenv
 import re
@@ -40,7 +41,7 @@ class AgentManager:
 
             # モジュール内のクラスを走査して BasePlugin のサブクラスを取得
             for name, obj in inspect.getmembers(module, inspect.isclass):
-                if issubclass(obj, Tool) and obj is not Tool:
+                if issubclass(obj, Tool) and not self.is_ignored_as_plugin(obj):
                     try:
                         instance = obj(gml_dirs)
                         instances.append(instance)  # インスタンス化
@@ -48,7 +49,21 @@ class AgentManager:
                         logging.exception(f"プラグイン({module})の追加に失敗しました")
 
         return instances
-    
+
+    def is_ignored_as_plugin(self, tp: type): 
+        ignore_list = [
+            # エージェントのベースとなるクラスであるため、これは直接プラグインとして使わない。
+            Tool, 
+            # これを直接エージェントとして使うのではなく、これをさらに別クラスで派生させてエージェントとして使うため。
+            GetStringAttributeFrequency, 
+            # 他にあれば追加する
+        ]
+        for item in ignore_list:
+            if tp is item:
+                return True
+        return False
+
+
     def query(self, message):
         try:
             result = self._agent.run(message)

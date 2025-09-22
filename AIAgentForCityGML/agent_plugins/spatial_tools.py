@@ -178,7 +178,7 @@ class LoadSpatialDataset(Tool):
     返り値(JSON):
       {"db_path":"...","relation":"...","kind":"view|table","rows":12345}
     """
-    def __init__(self, gml_dirs: list[str] | None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(
             name="LoadSpatialDataset",
             func=self._run,
@@ -353,7 +353,7 @@ class ProposeSQL(Tool):
       }
     返り値(JSON): {"sql":"SELECT ... LIMIT ...","notes":"..."}
     """
-    def __init__(self, gml_dirs: list[str] | None, llm: ChatOpenAI | None):
+    def __init__(self, gml_dirs: list[str] = None, llm: ChatOpenAI = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(
@@ -444,7 +444,7 @@ class RunSQL(Tool):
       }
     返り値(JSON): {"columns":[...],"rows":[...]}
     """
-    def __init__(self, gml_dirs: list[str] | None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(
             name="RunSQL",
             func=self._run,
@@ -496,7 +496,7 @@ class ComposeAnswer(Tool):
       }
     返り値: 文字列（日本語の最終応答）
     """
-    def __init__(self, gml_dirs: Optional[List[str]] = None, llm: Optional[ChatOpenAI] = None):
+    def __init__(self, gml_dirs: list[str] = None, llm: Optional[ChatOpenAI] = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(
@@ -573,7 +573,7 @@ class RunSQLSmart(Tool):
         "notes":"..."
       }
     """
-    def __init__(self, gml_dirs: Optional[List[str]] = None, llm: Optional[ChatOpenAI] = None):
+    def __init__(self, gml_dirs: list[str] = None, llm: Optional[ChatOpenAI] = None):
         api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
         self._llm = llm or ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=api_key)
         super().__init__(
@@ -769,7 +769,7 @@ class RunHazardUtility(Tool):
     返り値(JSON): RunSQLSmartの返却そのまま（result, sql_history など）に utility と prompt を付与
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(
             name="RunHazardUtility",
             func=self._run,
@@ -905,7 +905,7 @@ class RunStatUtility(Tool):
     返り値: RunSQLSmart の出力に utility と params と prompt を付与
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(
             name="RunStatUtility",
             func=self._run,
@@ -985,7 +985,7 @@ class GenerateResidentReport(Tool):
     返り値: 日本語のテキスト（住民説明用の簡潔な資料）
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(
             name="GenerateResidentReport",
             func=self._run,
@@ -1092,7 +1092,7 @@ class OrchestrateQuery(Tool):
     返り値(JSON): 下流の返却（result/sql_history/notes）に route と utility を付与
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(
             name="OrchestrateQuery",
             func=self._run,
@@ -1180,7 +1180,7 @@ class HazardLoadData(Tool):
     返り値: LoadSpatialDataset の返却(JSON)
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(name="HazardLoadData", func=self._run, description="ハザード用データを既定/指定でロードする。")
 
     def _run(self, expression: str) -> str:
@@ -1217,7 +1217,7 @@ class HazardProposeAndRun(Tool):
     返り値: RunHazardUtility or RunSQLSmart の結果(JSON)に route/utility/prompt を付与
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(name="HazardProposeAndRun", func=self._run, description="ハザード自然文またはユーティリティを実行。")
 
     def _run(self, expression: str) -> str:
@@ -1265,7 +1265,7 @@ class HazardReport(Tool):
     返り値: テキスト
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(name="HazardReport", func=self._run, description="ハザードの住民説明レポートを生成する。")
 
     def _run(self, expression: str) -> str:
@@ -1303,7 +1303,7 @@ class RunHazardPipeline(Tool):
       }
     """
 
-    def __init__(self, gml_dirs: Optional[List[str]] = None):
+    def __init__(self, gml_dirs: list[str] = None):
         super().__init__(name="RunHazardPipeline", func=self._run, description="ハザードデータのロード→集計→レポートを一括実行。")
 
     def _run(self, expression: str) -> str:

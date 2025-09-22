@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import sys
+import os
 from pathlib import Path
 from statistics import mean
 from collections import Counter
@@ -28,7 +29,10 @@ def compute_histogram(values, bins=10):
         counts[idx] += 1
     return {"bin_edges": edges, "counts": counts}
 
-def extract_gml_stats(input_gml: Path, output_json: Path, bins=10):
+def extract_gml_stats(input_gml: Path, output_json: Path, bins: int = 10, overwrite: bool = False):
+    if not overwrite and os.path.exists(output_json):
+        print(f"[Skip] {input_gml} → {output_json}")
+        return
     """
     1つのGMLファイル内の各フィールドについて
       - 数値フィールド: count/min/max/mean/histogram

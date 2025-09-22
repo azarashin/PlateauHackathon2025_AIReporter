@@ -820,7 +820,10 @@ class RunHazardUtility(Tool):
         retries = int(p.get("retries", 2))
         as_geojson = bool(p.get("as_geojson", False))
 
-        user_prompt = self._build_prompt(relation, utility, params)
+        try:
+            user_prompt = self._build_prompt(relation, utility, params)
+        except Exception as e:
+            return json.dumps({"error": "invalid prompt"}, ensure_ascii=False)
         # RunSQLSmart は提案+実行を行う
         smart = RunSQLSmart([])  # gml_dirs は未使用のため空
         smart_out_raw = smart.run(json.dumps({

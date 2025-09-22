@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  ai-reporter:
+    build: .
+    container_name: ai-reporter
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    ports:
+      - "${FLASK_HOST_PORT}:${FLASK_CONTAINER_PORT}"
+    env_file:
+      - .env
+    tty: true

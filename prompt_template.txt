@@ -24,6 +24,17 @@ Action Input は純粋なJSONオブジェクトのみ。json.dumpsやクォー�
   "area":{"names":[{{TARGET_AREA}}],"index_json":"./CityGMLData/city_codes_osaka_structured.json"}
 }
 
+【ツールの使用について：「建物現況」を求めるケース】
+「建物現況」に関しては、GetStringAttributeFrequency(Tool)を用いること。
+
+以下のツールは消して使用しないこと。
+- EStatTool
+- spatial_tools.py内のツール
+
+【ツールの使用について：「ハザード」を求めるケース】
+ハザードは以下のツールを以下の順番で使用すること。
+HazardLoadData → HazardProposeAndRun → HazardReport（または RunHazardPipeline）
+
 【出力形式】
 分析結果は次のようなjson形式で出力してください。
 説明文は一切書かないでください。

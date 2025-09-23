@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+from AIAgentForCityGML.gml_directory_scanner import GMLDirectoryScanner
 from flask import Flask, render_template, request, send_file, url_for, redirect
 
 # Ensure project root is on sys.path for imports
@@ -17,6 +18,9 @@ app = Flask(__name__)
 # Place result.pdf at repo root (same as ai_report_generator)
 OUTPUT_PDF = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'result.pdf'))
 TEMPLATE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'prompt_template.txt'))
+
+scanner = GMLDirectoryScanner("CityGMLData")
+target_dirs = scanner.find_valid_directories()
 
 @app.route('/', methods=['GET'])
 def index():
@@ -37,7 +41,7 @@ def generate():
     prompt = prompt.replace('{{TARGET_AREA}}', target_area_string)
 
     # Query agent and generate PDF
-    agent = AgentManager()
+    agent = AgentManager(target_dirs)
     response = agent.query(prompt)
     generate_report(response, OUTPUT_PDF)
 

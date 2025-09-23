@@ -3,6 +3,7 @@ import sys
 import argparse
 
 from AIAgentForCityGML.city_gml2meta import extract_gml_metadata_and_features
+from AIAgentForCityGML.gml_directory_scanner import GMLDirectoryScanner
 from AIAgentForCityGML.gml_stats_all import extract_gml_stats
 
 
@@ -20,20 +21,27 @@ def main():
     # ディレクトリパス（最低1つ以上）
     parser.add_argument(
         "directories",
-        nargs="+",  # 1つ以上の引数を必須にする
+        nargs="*",  # 1つ以上の引数を必須にする
         type=Path,
-        help="CityGMLのディレクトリパス（最低1つ必要）"
+        help="CityGMLのディレクトリパス（省略するとCityGMLData 配下から自動検出）"
     )
 
     args = parser.parse_args()
 
+    directories = args.directories
+
+    if directories is None or len(directories) == 0:
+        scanner = GMLDirectoryScanner("CityGMLData")
+        directories = scanner.find_valid_directories()
+
+
     print(f"overwrite = {args.overwrite}")
     print("指定されたディレクトリ:")
-    for dir_path in args.directories:
+    for dir_path in directories:
         print(f" - {dir_path}（存在: {dir_path.exists()}, ディレクトリ: {dir_path.is_dir()})")
 
     gml_files = {}
-    for base_dir in args.directories:
+    for base_dir in directories:
         if not base_dir.is_dir():
             print(f"ディレクトリが見つかりません: {base_dir}")
             return
@@ -44,7 +52,7 @@ def main():
             return
         gml_files[base_dir] = new_gml_files
 
-    for base_dir in args.directories:
+    for base_dir in directories:
         next_gml_files = gml_files[base_dir]
         for gml in next_gml_files:
             out_json = gml.with_suffix(".json")

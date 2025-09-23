@@ -34,6 +34,4 @@ RUN pip install --upgrade --break-system-packages -r requirements.txt
 # GDALのバージョン確認用
 RUN gdal-config --version
 
-#CMD ["flask", "run", "--host=0.0.0.0", "--port=${FLASK_CONTAINER_PORT}"]
-CMD ["sh", "-c", "${APP_CMD:-bash }"]
-
+CMD ["python3", "-m", "Viewer.app"]

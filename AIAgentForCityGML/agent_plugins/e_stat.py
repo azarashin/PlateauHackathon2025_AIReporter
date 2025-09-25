@@ -96,7 +96,7 @@ class EStatTool(Tool):
             ),
         )
 
-        load_dotenv()
+        load_dotenv(override=True)
         raw_app_id = os.getenv("E_STAT_APP_ID", "")
         try:
             if not raw_app_id:

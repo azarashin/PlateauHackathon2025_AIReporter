@@ -28,11 +28,11 @@ from typing import Optional, List, Dict, Any
 import duckdb
 from langchain.tools import Tool
 
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 from pydantic import PrivateAttr
 
-# .env をどこから実行しても見つけられるようにロード
-load_dotenv(find_dotenv(), override=False)
+# .env はデフォルト位置、即ちpython3 -m (モジュール名)を実行した位置にある.env を使用する
+load_dotenv(override=True)
 # SDK が期待する OPENAI_API_KEY へ、ユーザ既存の OPEN_AI_API_KEY をエイリアス
 if os.getenv("OPENAI_API_KEY") is None and os.getenv("OPEN_AI_API_KEY"):
     os.environ["OPENAI_API_KEY"] = os.getenv("OPEN_AI_API_KEY")
@@ -1361,7 +1361,7 @@ if __name__ == "__main__":
     # APIキー確認（dotenvがあれば読み込む）
     try:
         from dotenv import load_dotenv  # type: ignore
-        load_dotenv()
+        load_dotenv(override=True)
     except Exception:
         pass
 

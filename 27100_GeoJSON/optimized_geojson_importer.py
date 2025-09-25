@@ -16,7 +16,7 @@ import os
 from dotenv import load_dotenv
 
 # 環境変数読み込み
-load_dotenv()
+load_dotenv(override=True)
 
 # ログ設定
 logging.basicConfig(

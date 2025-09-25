@@ -165,7 +165,7 @@ def test_database_connection():
         import psycopg2
         from dotenv import load_dotenv
         
-        load_dotenv()
+        load_dotenv(override=True)
         
         db_config = {
             'host': os.getenv('DB_HOST', 'localhost'),
@@ -217,7 +217,7 @@ def test_import_process():
         from optimized_geojson_importer import OptimizedGeoJSONImporter
         from dotenv import load_dotenv
         
-        load_dotenv()
+        load_dotenv(override=True)
         
         db_config = {
             'host': os.getenv('DB_HOST', 'localhost'),

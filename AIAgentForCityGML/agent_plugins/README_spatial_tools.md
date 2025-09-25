@@ -13,7 +13,7 @@ if __name__ == "__main__":
     # APIキー確認（dotenvがあれば読み込む）
     try:
         from dotenv import load_dotenv  # type: ignore
-        load_dotenv()
+        load_dotenv(override=True)
     except Exception:
         pass
 

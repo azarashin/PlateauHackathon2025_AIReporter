@@ -14,7 +14,7 @@ class AgentManager:
     def __init__(self, gml_dirs: list[dir]):
         plugins = self._load_plugins(gml_dirs)
         
-        load_dotenv()
+        load_dotenv(override=True)
         
         API_KEY = os.environ['OPEN_AI_API_KEY']
         lim = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=API_KEY)

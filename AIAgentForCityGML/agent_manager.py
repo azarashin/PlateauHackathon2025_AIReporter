@@ -17,13 +17,24 @@ class AgentManager:
         load_dotenv(override=True)
         
         API_KEY = os.environ['OPEN_AI_API_KEY']
-        lim = ChatOpenAI(model="gpt-4o-mini", temperature=0, api_key=API_KEY)
+        AGENT_TYPE = os.environ['AGENT_TYPE']
+        AI_MODEL = os.environ['AI_MODEL']
+        AI_MAX_ITERATION = int(os.environ['AI_MAX_ITERATION'])
+        AI_TEMPERATURE = float(os.environ['AI_TEMPERATURE'])
+        
+        logging.info(f'### ENVIRONMENT PARAMETERS ###')
+        logging.info(f'AGENT_TYPE: {AGENT_TYPE}')
+        logging.info(f'AI_MODEL: {AI_MODEL}')
+        logging.info(f'AI_MAX_ITERATION: {AI_MAX_ITERATION}')
+        logging.info(f'AI_TEMPERATURE: {AI_TEMPERATURE}')
+
+        lim = ChatOpenAI(model=AI_MODEL, temperature=AI_TEMPERATURE, api_key=API_KEY)
         self._agent = initialize_agent(
             plugins, 
             lim, 
-            agent="zero-shot-react-description", 
+            agent=AGENT_TYPE,
             verbose=True, 
-            max_iterations=7,    # 例：最大7ステップ
+            max_iterations=AI_MAX_ITERATION,
             early_stopping_method="generate", 
             response_format="json"
         )

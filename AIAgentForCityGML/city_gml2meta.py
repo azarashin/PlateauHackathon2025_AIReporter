@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import sys
+import os
 from pathlib import Path
 from osgeo import ogr
 
@@ -9,7 +10,10 @@ from osgeo import ogr
 '''
 
 
-def extract_gml_metadata_and_features(input_gml: Path, output_json: Path):
+def extract_gml_metadata_and_features(input_gml: Path, output_json: Path, overwrite: bool = False):
+    if not overwrite and os.path.exists(output_json):
+        print(f"[Skip] {input_gml} → {output_json}")
+        return
     """
     1つの GML ファイルから
       - レイヤメタデータ

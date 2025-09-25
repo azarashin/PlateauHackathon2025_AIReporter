@@ -1,7 +1,10 @@
+import argparse
 import sys
 import json
 import os
 from pathlib import Path
+
+from AIAgentForCityGML.gml_directory_scanner import GMLDirectoryScanner
 
 sys.path.append('./AIAgentForCityGML')
 from AIAgentForCityGML.agent_manager import AgentManager
@@ -144,19 +147,35 @@ def test_create_pdf_from_dummy_data():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print("使い方: python extract_gml_features_all.py <ディレクトリパス>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="CityGML データを元に前処理を実施する")
 
-    base_dir = Path(sys.argv[1])
-    if not base_dir.is_dir():
-        print(f"ディレクトリが見つかりません: {base_dir}")
-        sys.exit(1)
+    # ディレクトリパス
+    parser.add_argument(
+        "directories",
+        nargs="*",  # 1つ以上の引数を必須にする
+        type=Path,
+        help="CityGMLのディレクトリパス（省略するとCityGMLData 配下から自動検出）"
+    )
+
+    args = parser.parse_args()
+
+    directories = args.directories
+
+    if directories is None or len(directories) == 0:
+        scanner = GMLDirectoryScanner("CityGMLData")
+        directories = scanner.find_valid_directories()
+
+
+    for base_dir in directories:
+        print(base_dir)
+        if not base_dir.is_dir():
+            print(f"ディレクトリが見つかりません: {base_dir}")
+            sys.exit(1)
    
     prompt = get_prompt()
     print(prompt)
 
-    agentManager = AgentManager([base_dir])
+    agentManager = AgentManager(directories)
     response = agentManager.query(prompt)
     print('--- start ---')
     print(response)

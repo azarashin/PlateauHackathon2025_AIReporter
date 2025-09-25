@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 import glob
 
 # 環境変数読み込み
-load_dotenv()
+load_dotenv(override=True)
 
 # ログ設定
 logging.basicConfig(

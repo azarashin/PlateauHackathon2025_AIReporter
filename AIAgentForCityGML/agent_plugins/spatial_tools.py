@@ -130,6 +130,21 @@ def _relation_preview(con: duckdb.DuckDBPyConnection, relation: str) -> Dict[str
             if spatial_ok and (ctype == "GEOMETRY" or "GEOMETRY" in ctype):
                 # そのままの列名で GeoJSON 文字列に変換
                 select_cols.append(f"ST_AsGeoJSON({_i(cname)}) AS {_i(cname)}")
+            elif spatial_ok and ctype in ("BLOB", "VARBINARY", "BINARY"):
+                # WKB バイナリ列を GeoJSON 文字列に変換を試みる（失敗時は元の列を使う）
+                try:
+                    test_sql = (
+                        f"SELECT ST_AsGeoJSON(ST_GeomFromWKB({_i(cname)})) "
+                        f"FROM {relation} WHERE {_i(cname)} IS NOT NULL LIMIT 1"
+                    )
+                    con.execute(test_sql).fetchone()
+                    select_cols.append(
+                        f"CASE WHEN {_i(cname)} IS NOT NULL "
+                        f"THEN ST_AsGeoJSON(ST_GeomFromWKB({_i(cname)})) "
+                        f"ELSE NULL END AS {_i(cname)}"
+                    )
+                except Exception:
+                    select_cols.append(_i(cname))
             else:
                 select_cols.append(_i(cname))
         select_expr = ", ".join(select_cols)
@@ -1354,6 +1369,267 @@ class RunHazardPipeline(Tool):
             report_text = rep.run(json.dumps({"db_path": db_path, "relation": relation, "area_name": p.get("area_name", "大阪市内")}, ensure_ascii=False))
 
         return json.dumps({"load_ctx": load_ctx, "steps": steps, "report": report_text}, ensure_ascii=False)
+
+
+# =============================== ⑨ WKB → 座標変換 ===============================
+class WKBToCoordinates(Tool):
+    """
+    DuckDB テーブル/ビュー内の WKB バイナリ列（BLOB）を経度・緯度の数値列に変換して返す。
+
+    入力JSON:
+      {
+        "db_path": "geo.duckdb",       # 必須
+        "relation": "buildings",       # 必須
+        "wkb_column": "geometry",      # 必須: WKB を格納している列名
+        "id_columns": ["id"],          # 任意: 一緒に返す識別列（省略時は全列）
+        "limit": 100                   # 任意（既定: 100）
+      }
+    返り値(JSON):
+      {"columns": ["longitude", "latitude", ...], "rows": [...]}
+      または {"error": "..."}
+    """
+
+    def __init__(self, gml_dirs: list[str] = None):
+        super().__init__(
+            name="WKBToCoordinates",
+            func=self._run,
+            description=(
+                "DuckDB テーブル/ビューの WKB バイナリ列（BLOB）を経度(longitude)・緯度(latitude)の"
+                "座標数値に変換して返す。geometry列がWKBバイナリ形式で格納されている場合に使用する。"
+            )
+        )
+
+    def _run(self, expression: str) -> str:
+        try:
+            p = json.loads(expression)
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+
+        db_path = p.get("db_path", "geo.duckdb")
+        relation = p.get("relation", "buildings")
+        wkb_column = p.get("wkb_column", "geometry")
+        id_columns: List[str] = p.get("id_columns") or []
+        limit = int(p.get("limit", 100))
+
+        con = _connect(db_path)
+        try:
+            if not (_spatial_loaded(con) and _spatial_functions_available(con)):
+                return json.dumps(
+                    {"error": "DuckDB spatial拡張が未ロードのため WKB を座標に変換できません。"},
+                    ensure_ascii=False
+                )
+
+            def _i(name: str) -> str:
+                esc = name.replace('"', '""')
+                return f'"{esc}"'
+
+            # 識別列の SELECT 節を組み立て
+            id_select = ", ".join(_i(c) for c in id_columns) + ", " if id_columns else ""
+            sql = (
+                f"SELECT {id_select}"
+                f"ST_X(ST_GeomFromWKB({_i(wkb_column)})) AS longitude, "
+                f"ST_Y(ST_GeomFromWKB({_i(wkb_column)})) AS latitude "
+                f"FROM {relation} "
+                f"WHERE {_i(wkb_column)} IS NOT NULL "
+                f"LIMIT {limit}"
+            )
+            cur = con.execute(sql)
+            rows = cur.fetchall()
+            cols = [d[0] for d in cur.description]
+            return json.dumps({"columns": cols, "rows": rows}, ensure_ascii=False)
+        except Exception as e:
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
+        finally:
+            con.close()
+
+
+# =============================== ⑩ 部分地域フィルタ ===============================
+class FilterBySubRegion(Tool):
+    """
+    DuckDB テーブル/ビュー内の点ジオメトリが、指定した部分地域（行政区・小学校区・大字単位など）
+    のポリゴン内に含まれるかを確認し、該当レコードを返す。
+
+    geometry_column は GEOMETRY 型または WKB バイナリ（BLOB）のどちらでも使用可能。
+
+    入力JSON:
+      {
+        "db_path": "geo.duckdb",          # 必須
+        "relation": "buildings",          # 必須
+        "geometry_column": "geometry",    # 必須: 点ジオメトリを格納している列名
+        "region_wkt": "POLYGON(...)",     # 部分地域ポリゴン（WKT）。region_geojson と排他
+        "region_geojson": "{...}",        # 部分地域ポリゴン（GeoJSON文字列）。region_wkt と排他
+        "region_name": "天王寺区",        # 任意: 結果メタデータ用の地域名
+        "region_type": "行政区",          # 任意: 結果メタデータ用の地域種別
+        "count_only": false,              # 任意: true の場合は件数のみ返す（既定: false）
+        "max_rows": 500                   # 任意（既定: 500）
+      }
+    返り値(JSON):
+      count_only=true  → {"count": 1234, "region_name": "...", "region_type": "..."}
+      count_only=false → {"columns": [...], "rows": [...], "count": 1234,
+                          "region_name": "...", "region_type": "..."}
+      エラー時        → {"error": "..."}
+    """
+
+    def __init__(self, gml_dirs: list[str] = None):
+        super().__init__(
+            name="FilterBySubRegion",
+            func=self._run,
+            description=(
+                "指定した部分地域（行政区・小学校区・大字単位などのポリゴン）に含まれる建物レコードを抽出する。"
+                "region_wkt（WKT文字列）または region_geojson（GeoJSON文字列）でポリゴンを指定する。"
+                "geometry_column は GEOMETRY 型または WKB バイナリ（BLOB）に対応。"
+            )
+        )
+
+    @staticmethod
+    def _geojson_to_wkt(geojson_str: str) -> str:
+        """GeoJSON ポリゴン文字列を WKT に変換する（外部ライブラリ不要の簡易実装）。"""
+        try:
+            g = json.loads(geojson_str)
+        except Exception:
+            raise ValueError("region_geojson が有効な JSON ではありません")
+
+        # Feature の場合はジオメトリ部分を取り出す
+        if g.get("type") == "Feature":
+            g = g.get("geometry", {})
+
+        geom_type = g.get("type", "")
+        coords = g.get("coordinates")
+
+        def _ring_to_wkt(ring: list) -> str:
+            parts = []
+            for coord in ring:
+                if not isinstance(coord, (list, tuple)) or len(coord) < 2:
+                    raise ValueError(f"無効な座標: {coord!r}（各座標は [経度, 緯度] 形式である必要があります）")
+                parts.append(f"{coord[0]} {coord[1]}")
+            return f"({', '.join(parts)})"
+
+        if geom_type == "Polygon":
+            rings = [_ring_to_wkt(ring) for ring in coords]
+            return f"POLYGON({', '.join(rings)})"
+
+        if geom_type == "MultiPolygon":
+            polys = []
+            for poly in coords:
+                rings = [_ring_to_wkt(ring) for ring in poly]
+                polys.append(f"({', '.join(rings)})")
+            return f"MULTIPOLYGON({', '.join(polys)})"
+
+        raise ValueError(f"サポート外のジオメトリ型: {geom_type}（Polygon または MultiPolygon を指定してください）")
+
+    def _run(self, expression: str) -> str:
+        try:
+            p = json.loads(expression)
+        except Exception:
+            try:
+                p = ast.literal_eval(expression)
+            except Exception:
+                return json.dumps({"error": "invalid expression"}, ensure_ascii=False)
+
+        db_path = p.get("db_path", "geo.duckdb")
+        relation = p.get("relation", "buildings")
+        geom_col = p.get("geometry_column", "geometry")
+        region_wkt: Optional[str] = p.get("region_wkt")
+        region_geojson: Optional[str] = p.get("region_geojson")
+        region_name: str = p.get("region_name", "")
+        region_type: str = p.get("region_type", "")
+        count_only = bool(p.get("count_only", False))
+        max_rows = int(p.get("max_rows", DEFAULT_LIMIT))
+
+        # ポリゴン WKT の決定
+        if not region_wkt and not region_geojson:
+            return json.dumps(
+                {"error": "region_wkt または region_geojson を指定してください"},
+                ensure_ascii=False
+            )
+        if not region_wkt:
+            try:
+                region_wkt = self._geojson_to_wkt(region_geojson)  # type: ignore[arg-type]
+            except Exception as e:
+                return json.dumps({"error": str(e)}, ensure_ascii=False)
+
+        con = _connect(db_path)
+        try:
+            if not (_spatial_loaded(con) and _spatial_functions_available(con)):
+                return json.dumps(
+                    {"error": "DuckDB spatial拡張が未ロードのため空間フィルタを実行できません。"},
+                    ensure_ascii=False
+                )
+
+            def _i(name: str) -> str:
+                esc = name.replace('"', '""')
+                return f'"{esc}"'
+
+            # geometry 列の型を確認して適切な ST_Within 式を組み立てる
+            desc_rows = con.execute(f"DESCRIBE {relation}").fetchall()
+            col_types = {r[0]: (r[1] or "").upper() for r in desc_rows}
+            ctype = col_types.get(geom_col, "")
+
+            if ctype == "GEOMETRY" or "GEOMETRY" in ctype:
+                geom_expr = _i(geom_col)
+            else:
+                # BLOB/VARBINARY など: WKB として読み込む
+                geom_expr = f"ST_GeomFromWKB({_i(geom_col)})"
+
+            region_wkt_escaped = region_wkt.replace("'", "''")
+            region_expr = f"ST_GeomFromText('{region_wkt_escaped}')"
+            where_clause = f"ST_Within({geom_expr}, {region_expr})"
+
+            if count_only:
+                count_sql = f"SELECT COUNT(*) FROM {relation} WHERE {where_clause}"
+                count_val = int(con.execute(count_sql).fetchone()[0])
+                return json.dumps(
+                    {"count": count_val, "region_name": region_name, "region_type": region_type},
+                    ensure_ascii=False
+                )
+
+            # 全カラム取得（件数も付与）。ウィンドウ関数で1クエリにまとめてスキャンを1回に抑える
+            data_sql = (
+                f"SELECT *, COUNT(*) OVER() AS _total_count "
+                f"FROM {relation} WHERE {where_clause} LIMIT {max_rows}"
+            )
+            cur = con.execute(data_sql)
+            rows = cur.fetchall()
+            all_cols = [d[0] for d in cur.description]
+
+            # _total_count 列を分離して件数を取得
+            if "_total_count" in all_cols:
+                total_idx = all_cols.index("_total_count")
+                count_val = int(rows[0][total_idx]) if rows else 0
+                cols = [c for c in all_cols if c != "_total_count"]
+                rows = [tuple(v for i, v in enumerate(row) if i != total_idx) for row in rows]
+            else:
+                count_val = len(rows)
+                cols = all_cols
+
+            # bytes など JSON 化できない値を安全に文字列化
+            def _json_safe(v: Any) -> Any:
+                if isinstance(v, (bytes, bytearray, memoryview)):
+                    try:
+                        return v.decode("utf-8")
+                    except Exception:
+                        return f"<BLOB {len(v)} bytes>"
+                return v
+
+            safe_rows = [[_json_safe(x) for x in row] for row in rows]
+
+            return json.dumps(
+                {
+                    "columns": cols,
+                    "rows": safe_rows,
+                    "count": count_val,
+                    "region_name": region_name,
+                    "region_type": region_type,
+                },
+                ensure_ascii=False
+            )
+        except Exception as e:
+            return json.dumps({"error": str(e)}, ensure_ascii=False)
+        finally:
+            con.close()
 
 
 # =============================== サンプル実行 ===============================
